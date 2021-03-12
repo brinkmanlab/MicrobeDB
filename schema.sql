@@ -20,10 +20,10 @@ CREATE TABLE assembly
     "assemblystatus"              TEXT,
     "assemblystatussort"          INTEGER,
     "wgs"                         TEXT,
-    "gb_bioprojects"              TEXT,             -- JSON encoded array of genbank bioproject objects
-    "gb_projects"                 TEXT,             -- JSON encoded array of genbank projects
-    "rs_bioprojects"              TEXT,             -- JSON encoded array of RefSeq bioproject objects
-    "rs_projects"                 TEXT,             -- JSON encoded array of RefSeq projects
+    "gb_bioprojects"              TEXT,             -- JSON encoded list of genbank bioproject objects
+    "gb_projects"                 TEXT,             -- JSON encoded list of genbank projects
+    "rs_bioprojects"              TEXT,             -- JSON encoded list of RefSeq bioproject objects
+    "rs_projects"                 TEXT,             -- JSON encoded list of RefSeq projects
     "biosampleaccn"               TEXT,
     "biosampleid"                 TEXT,
 --  "biosource"                   object,  -- This structure flattened into biosource_* columns
@@ -66,33 +66,44 @@ CREATE TABLE assembly
 CREATE TABLE summaries
     --- Statistics generated from the genomic datasets. One record per replicon.
 (
-    "id"                  INTEGER PRIMARY KEY,                                -- Alias of rowid
-    "uid"                 TEXT REFERENCES assembly ("uid") ON UPDATE CASCADE, -- Foreign key to assembly table
-    "seqid"               TEXT UNIQUE NOT NULL,                               -- Replicon Id
-    "accession"           TEXT,                                               -- Replicon accession
-    "name"                TEXT,                                               -- Replicon name
-    "description"         TEXT,                                               -- Replicon description
-    "type"                TEXT,                                               -- Replicon type (chromosome/plasmid)
-    "molecule_type"       TEXT,                                               -- Molecule type [DNA/RNA]
-    "sequence_version"    INTEGER,                                            -- Version of replicon sequence
-    "gi_number"           INTEGER,                                            --
-    "cds_count"           INTEGER,                                            -- # of CDS features
-    "gene_count"          INTEGER,                                            -- # of gene features
-    "rna_count"           INTEGER,                                            -- # of xRNA features
-    "repeat_region_count" INTEGER,                                            -- # of repeat_region features
-    "length"              INTEGER,                                            -- Length of replicon sequence
-    "source"              TEXT                                                -- Replicon source
+    "id"                  INTEGER PRIMARY KEY,                                         -- Alias of rowid
+    "uid"                 TEXT REFERENCES assembly ("uid") ON UPDATE CASCADE NOT NULL, -- Foreign key to assembly table
+    "seqid"               TEXT                                               NOT NULL, -- Replicon Id
+    "accession"           TEXT,                                                        -- Replicon accession
+    "name"                TEXT,                                                        -- Replicon name
+    "description"         TEXT,                                                        -- Replicon description
+    "type"                TEXT,                                                        -- Replicon type (chromosome/plasmid)
+    "molecule_type"       TEXT,                                                        -- Molecule type [DNA/RNA]
+    "sequence_version"    INTEGER,                                                     -- Version of replicon sequence
+    "gi_number"           INTEGER,                                                     --
+    "cds_count"           INTEGER,                                                     -- # of CDS features
+    "gene_count"          INTEGER,                                                     -- # of gene features
+    "rna_count"           INTEGER,                                                     -- # of xRNA features
+    "repeat_region_count" INTEGER,                                                     -- # of repeat_region features
+    "length"              INTEGER,                                                     -- Length of replicon sequence
+    "source"              TEXT,                                                        -- Replicon source
+    UNIQUE (uid, seqid)
 );
 
 CREATE TABLE datasets
     --- Listing of all files
 (
     "uid"      TEXT REFERENCES assembly ("uid") ON UPDATE CASCADE NOT NULL, -- Foreign key to assembly table
-    "replicon" INTEGER REFERENCES summaries ("id") ON UPDATE CASCADE,       -- Foreign key to summary table
+    "replicon" INTEGER REFERENCES summaries ("id") ON UPDATE CASCADE,       -- Foreign key to summary table, NULL when dataset represents all replicons
     "path"     TEXT,                                                        -- Path to dataset relative to the database
     "format"   TEXT,                                                        -- Format of dataset
     "suffix"   TEXT                                                         -- Filename suffix excluding extension, describes file content
 );
+
+/* TODO is this table even required?
+CREATE TABLE metadata
+    --- Genome metadata
+(
+    "uid" TEXT REFERENCES assembly ("uid") ON UPDATE CASCADE NOT NULL -- Foreign key to assembly table
+    TODO gram stain
+    TODO chromosome, plasmid counts
+);
+*/
 
 CREATE TABLE taxonomy_names
     --- Names of tax_ids in taxonomy_nodes table. Multiple records exist per tax_id.
@@ -164,3 +175,5 @@ CREATE TABLE taxonomy_citations
     text       TEXT,                -- any text (usually article name and authors). The following characters are escaped in this text by a backslash: newline (appear as "\n"), tab character ("\t"), double quotes ('\"'), backslash character ("\\").
     taxid_list TEXT                 -- list of node ids separated by a single space
 );
+
+--- TODO genomeproject, genomeproject_meta, replicon, taxonomy table views

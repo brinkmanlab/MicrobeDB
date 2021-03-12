@@ -1,31 +1,40 @@
 #!/usr/bin/env bash
 #SBATCH --account=rpp-fiona
 #SBATCH --job-name=microbedb-fetch
-set -e                        # Halt on error
+set -e -o pipefail  # Halt on error
+
 
 # For each chunk of the query results:
-# - Populate the assembly and summary tables
 # - Download genomic data from NCBI
 # - Split assembly gbff into separate files per replicon
 # - Generate fna, faa, ffn, and PTT for each replicon
+# - Populate the assembly, datasets, and summaries tables
 
 FTP_GENOMES_PREFIX="genomes/" # NCBI rsync server returns error if you try to target root. This variable is the minimum path to avoid that.
 
+STOP=$((SLURM_ARRAY_TASK_ID + STEP - 1))
+if [[ $STOP -ge $COUNT ]]; then
+  STOP=$(($COUNT - 1))
+fi
+
 echo "Downloading records.."
-efetch -mode json -format docsum -start "$SLURM_ARRAY_TASK_ID" -stop "$(expr $SLURM_ARRAY_TASK_ID + $STEP - 1)" <query.xml >$SLURM_ARRAY_TASK_ID.json
+efetch -mode json -format docsum -start "$SLURM_ARRAY_TASK_ID" -stop "$STOP" <query.xml >"${SLURM_ARRAY_TASK_ID}_raw.json"
 
 # Verify API version
-VERSION="$(jq -r '.header.version' $SLURM_ARRAY_TASK_ID.json)"
+VERSION="$(jq -r '.header.version' "${SLURM_ARRAY_TASK_ID}_raw.json")"
 if [ "$VERSION" != '0.3' ]; then
-  echo "Unexpected Entrez API version '$VERSION'. Revalidate schema as what this script expects."
+  echo "Unexpected Entrez API version '$VERSION'. Update this script to accept new Entrez response schema."
   exit 1
 fi
+
+# Remove non-refseq records and .uids
+jq '.result | del(.uids) | with_entries(select(.value.rsuid != ""))' "${SLURM_ARRAY_TASK_ID}_raw.json" >"${SLURM_ARRAY_TASK_ID}.json"
 
 # Populate 'assembly' table
 echo "Converting records to CSV.."
 jq -r -f <(
   cat <<EOF
-.result | del(.uids) | .[] | [
+.[] | [
     # The array elements must match the same order as defined in the schema.sql 'assembly' table
     .uid, .rsuid, .gbuid, .assemblyaccession, .lastmajorreleaseaccession,
     .latestaccession, .chainid, .assemblyname, .ucscname, .ensemblname,
@@ -42,23 +51,18 @@ jq -r -f <(
     .ftppath_regions_rpt, .sortorder
 ] | map(. | tostring) | @csv
 EOF
-) $SLURM_ARRAY_TASK_ID.json >assembly_$SLURM_ARRAY_TASK_ID.csv
-
-echo "Populating assembly table.."
-sqlite3 -bail "${DBPATH}" <<EOF
-PRAGMA foreign_keys = ON;
-.mode csv
-.import assembly_${SLURM_ARRAY_TASK_ID}.csv assembly
-EOF
+) "${SLURM_ARRAY_TASK_ID}.json" >"assembly_${SLURM_ARRAY_TASK_ID}.csv"
 
 # Download data
-echo "Downloading genomic data.."
+echo "Preparing download lists.."
 # TODO verify that node has most recent commit of CVMFS repo mounted
 # Generate file lists per ftp host (there should only be one but if that ever changes..)
-rm -f "*_${SLURM_ARRAY_TASK_ID}.files" "${SLURM_ARRAY_TASK_ID}.paths"
+# Output one file path per line to {hostname}_${SLURM_ARRAY_TASK_ID}.files
+# ${SLURM_ARRAY_TASK_ID}.paths stores the Entrez uid to path mapping
+rm -f *_${SLURM_ARRAY_TASK_ID}.files "${SLURM_ARRAY_TASK_ID}.paths"
 jq -r -f <(
   cat <<EOF
-.result | del(.uids) | to_entries | .[].value | {uid: .uid} + (
+to_entries | .[].value | {uid: .uid} + (
   if (.ftppath_refseq | length) > 0 then
       .ftppath_refseq
   else
@@ -67,119 +71,190 @@ jq -r -f <(
 ) |
 "\(.uid)\t\(.host)\t\(.path)"
 EOF
-) $SLURM_ARRAY_TASK_ID.json |
-  while IFS=$'\t' read id host path; do
+) "${SLURM_ARRAY_TASK_ID}.json" | tee fuck.txt |
+  while IFS=$'\t' read -r id host path; do
     # For each assembly, prepare directory and add to rsync --files-from
     mkdir -p "${OUTDIR}/${path}"
-    echo "${path}" >>"${host}_${SLURM_ARRAY_TASK_ID}.files"         # Append to list of files to rsync
-    printf "%s\t$%s" "$id" "$path" >>"${SLURM_ARRAY_TASK_ID}.paths" # Append to tsv of uid to path mappings
+    echo "${path}" >>"${host}_${SLURM_ARRAY_TASK_ID}.files"              # Append to list of files to rsync
+    printf "%s\t%s\n" "${id}" "${path}" >>"${SLURM_ARRAY_TASK_ID}.paths" # Append to tsv of uid to path mappings
   done
 
 # Rsync datasets per ftp host
-for files in *_${SLURM_ARRAY_TASK_ID}.files; do
-  if [[ "${files}" =~ ^(.*)_[[:digit:]]+\.files$ ]]; then
-    if [ -d "${REPOPATH}/${FTP_GENOMES_PREFIX}" ]; then
-      # Sync comparing to existing CVMFS repo
-      rsync -rvcm --files-from="${files}" --compare-dest="${REPOPATH}/${FTP_GENOMES_PREFIX}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
-    else
-      # Download everything without comparing
-      rsync -rvcm --files-from="${files}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
+# Passes the previously generated {hostname}_${SLURM_ARRAY_TASK_ID}.files to rsyncs '--files-from' argument
+if [[ -z $SKIP_RSYNC ]]; then
+  for files in *_${SLURM_ARRAY_TASK_ID}.files; do
+    if [[ "${files}" =~ ^(.*)_[[:digit:]]+\.files$ ]]; then
+      echo "Downloading genomic data from ${BASH_REMATCH[1]}.."
+      if [ -d "${REPOPATH}/${FTP_GENOMES_PREFIX}" ]; then
+        # Sync comparing to existing CVMFS repo
+        rsync -rvcm --files-from="${files}" --compare-dest="${REPOPATH}/${FTP_GENOMES_PREFIX}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
+      else
+        # Download everything without comparing
+        rsync -rvcm --files-from="${files}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
+      fi
     fi
-  fi
-done
+  done
+fi
 
 echo "Processing downloaded data.."
-rm -f "summary_${SLURM_ARRAY_TASK_ID}.csv" "datasets_${SLURM_ARRAY_TASK_ID}.csv"
-echo "accession\tindex\ttype" > "replicon_idx_${SLURM_ARRAY_TASK_ID}.tsv"
+# Generate CSV files containing summary and datasets table information.
+# replicon_idx_${SLURM_ARRAY_TASK_ID}.csv is generated as intermediate data
+# for the datasets table with the replicon column replaced with the sequence id.
+rm -f "datasets_${SLURM_ARRAY_TASK_ID}.csv" "summary_${SLURM_ARRAY_TASK_ID}.csv" "replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
+#echo "uid,seqid,accession,name,description,type,molecule_type,sequence_version,gi_number,cds_count,gene_count,rna_count,repeat_region_count,length,source" >"summary_${SLURM_ARRAY_TASK_ID}.csv"
+#echo "uid,seqid,path,format,suffix" >"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
+TOSCHEMA='BEGIN{OFS=","}/^[^#]/{print UID, "\""$1"\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic"}' # gawk script to convert summary GFF3 to replicon_idx schema
 cat "${SLURM_ARRAY_TASK_ID}.paths" |
   while IFS=$'\t' read -r uid path; do
-    # Decompress all files
-    echo "Decompressing ${path}.."
-    for file in ${OUTDIR}/${path}/*.gz; do
-      gzip -d ${file}
+    if [[ -z $SKIP_RSYNC ]]; then
+      # Decompress all files
+      echo "Decompressing ${path}.."
+      parallel gzip -d ::: "${OUTDIR}"/"${path}"/*.gz
+    fi
+
+    # Generate datasets table
+    for f in ${OUTDIR}/${path}/*; do
+      if [[ "${f##*/}" =~ ^[^_]+_[^_]+_[^_]+_(.+)\.(.+)$ ]]; then
+        echo "${uid},,\"${path}/${f##*/}\",\"${BASH_REMATCH[2]}\",\"${BASH_REMATCH[1]}\"" >>"datasets_${SLURM_ARRAY_TASK_ID}.csv"
+      fi
     done
 
     # Split replicons and generate summaries
-    echo "Separating replicons ${path}.."
+    # biopython.convert provides the splitting functionality while also outputting a replicon summary gff3
+    # gawk takes that GFF3 summary and converts it to the table schema
+    # biopython.convert automatically adds an index suffix to the output filename for each replicon output
+    # the order of the replicons is stored into replicon_idx_XX.tsv to allow relinking to table record by the second call to gawk
+    echo "Separating replicons of ${path}.."
     for f in ${OUTDIR}/${path}/*_genomic.gbff; do
+      prefix=${f##*/}
+      prefix=${prefix%.*}
       biopython.convert -si "${f}" genbank "${f%.*}.gbk" genbank |
         gawk -v UID="$uid" -f <(
           cat <<'EOF'
-BEGIN {OFS=","}
+BEGIN {FS="\t";OFS=","}
 /^[^#]/ {
 # Unpack annotation column $9
 split($9, annotation, ";")
 for (a in annotation) {
-  split(a, kv, "=")
-  split(kv[1], annotations[kv[0]], ",")
+  split(annotation[a], kv, "=")
+  annotations[kv[1]] = kv[2]
 }
 
+features["CDS"] = 0
+features["gene"] = 0
+features["repeat_region"] = 0
 rna_count = 0
-# Unpack features column
-for (f in annotations["features"]) {
-  split(f, kv, ":")
-  features[kv[0]]=kv[1]
-  if (match(kv[0], "RNA") rna_count += kv[1]  # Sum all RNA types
+split(annotations["features"], feats, ",")
+# Unpack features annotation
+for (f in feats) {
+  split(feats[f], kv, ":")
+  features[kv[1]] = kv[2]
+  if (match(kv[1], "RNA")) { rna_count += kv[2] }  # Sum all RNA types
 }
 
 # Output cols, order must match order present in schema.sql 'summary' table
 # uid, seqid, accession, name, description, type, molecule_type, sequence_version, gi_number, cds_count, gene_count, rna_count, repeat_region_count, length, source
-  print UID, $1, "\"" annotations["accessions"] "\"", annotations["Name"], "\"" annotations["desc"] "\"", "source_plasmid" in annotations ? "plasmid" : "chromosome", annotations["source_mol_type"], annotations["sequence_version"], annotations["gi"], features["cds"], features["gene"], rna_count, features["repeat_region"], $5, "\"" annotations["source"] "\""
+  print UID, $1, "\"" annotations["accessions"] "\"", annotations["Name"], "\"" annotations["desc"] "\"", "source_plasmid" in annotations ? "plasmid" : "chromosome", "\"" annotations["source_mol_type"] "\"", annotations["sequence_version"], annotations["gi"], features["CDS"], features["gene"], rna_count, features["repeat_region"], $5, "\"" annotations["source"] "\""
 }
 EOF
-        ) | tee >(gawk 'BEGIN{OFS=","}{print "\""$2"\"", NR-1, "gbk"}' >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv") >>"summary_${SLURM_ARRAY_TASK_ID}.csv"
+        ) | tee >(gawk -v UID="$uid" -v PREFIX="${prefix}" -v PATH="${path}" -v EXT='gbk' 'BEGIN{FS=",";OFS=","}{print $1, "\"" $2 "\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic"}' >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv") >>"summary_${SLURM_ARRAY_TASK_ID}.csv"
 
-      echo "Generating replicon fna ${path}.."
-      biopython.convert -s "${f}" genbank "${f%.*}.fna" fasta |
-      gawk 'BEGIN{OFS=","}{print "\""$1"\"", NR-1, "fna"}' >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
-      # TODO Extract CDS transcripts, or split protein_gbff?
+      echo "Generating replicon fna of ${path}.."
+      biopython.convert -si "${f}" genbank "${f%.*}.fna" fasta |
+        gawk -v UID="$uid" -v PREFIX="${prefix}" -v PATH="${path}" -v EXT='fna' "$TOSCHEMA" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
     done
 
+    echo "Generating replicon ffn, faa, ptt of ${path}.."
     for f in ${OUTDIR}/${path}/*.gbk; do
+      # Recover the seqid from the file directly
+      seqid="$(biopython.convert -q '[[0].id]' "${f}" genbank /dev/stdout text)"
+      prefix="${f##*/}"
+      suffix="${prefix#*_}"
+      suffix="${suffix#*_}"
+      suffix="${suffix#*_}"
+      suffix="${suffix%.*}" # Text after GCF_XXXX_XXXX_
+      prefix="${prefix%.*}" # basename of file without extension
+      biopython.convert -q "$(
+        cat <<'EOF'
+[0].let({desc: description, seq: seq}, &features[?type=='gene'].{id:
+join('|', [
+  (qualifiers.db_xref[?starts_with(@, 'GI')].['gi', split(':', @)[1]]),
+  (qualifiers.protein_id[*].['ref', @]),
+  (qualifiers.locus_tag[*].['locus', @]),
+  join('', [':', [location][?strand==`-1`] && 'c' || '', to_string(sum([location.start, `1`])), '..', to_string(location.end)])
+][][]),
+seq: extract(seq, @),
+description: desc})
+EOF
+      )" "${f}" genbank "${f%.*}.ffn" fasta
+      echo "${uid},${seqid},\"${path}/${prefix}.ffn\",ffn,\"${suffix}\"" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
+
+      biopython.convert -q "$(
+        cat <<'EOF'
+[0].let({organism: (annotations.organism || annotations.source)}, &features[?type=='CDS' && qualifiers.translation].{id:
+join('|', [
+  (qualifiers.db_xref[?starts_with(@, 'GI')].['gi', split(':', @)[1]]),
+  (qualifiers.protein_id[*].['ref', @]),
+  (qualifiers.locus_tag[*].['locus', @]),
+  join('', [':', [location][?strand==`-1`] && 'c' || '', to_string(sum([location.start, `1`])), '..', to_string(location.end)])
+][][]),
+seq: qualifiers.translation[0],
+description: (organism && join('', [qualifiers.product[0], ' [', organism, ']']) || qualifiers.product[0])})
+EOF
+      )" "${f}" genbank "${f%.*}.faa" fasta
+      echo "${uid},${seqid},\"${path}/${prefix}.faa\",faa,\"${suffix}\"" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
+
       # Generate PTT files
-      # biopython does not support ptt files so we are going to bodge something together using the existing script dependencies
+      # biopython does not support ptt files so we are going to bodge something together using a complex JMESPath
       # https://github.com/biopython/biopython/issues/1725
       # Note the query is JMESPath and not jq
-      # GAWK is only required because JMESPath is missing split() https://github.com/jmespath/jmespath.py/issues/159
-      biopython.convert -i -q $(cat <<'EOF'
-[0].[join(' - 1..', [description, to_string(length(seq))]), join(' ', [to_string(length(features[?type=='CDS' && qualifiers.translation])), 'proteins']), join(`"\t"`, ['Location', 'Strand', 'Length', 'PID', 'Gene', 'Synonym', 'Code', 'COG', 'Product']), (features[?type=='CDS' && qualifiers.translation].[join('..', [to_string(sum([location.start, `1`])), to_string(location.end)]), [location.strand][?@==`1`] && '+' || '-', length(qualifiers.translation[0]), qualifiers.db_xref[?starts_with(@, 'GI')][0] || '-', qualifiers.gene[0] || '-', qualifiers.locus_tag[0] || '-', '-', '-', qualifiers.product[0] ] | [*].join(`"\t"`, [*].to_string(@)) )] | []
-EOF
-      ) "${f}" genbank >(gawk 'BEGIN{IFS=OFS="\t"} $4!="-"{split($4, a, ":"); $4=a[2]} { print }' > "${f%.*}.ptt") text |
+      # Sample PTT for reference
       #Gallaecimonas mangrovi strain HK-28 chromosome, complete genome. - 1..4071977
       #3721 proteins
       #Location        Strand  Length  PID     Gene    Synonym         Code    COG     Product
       #1..4071977      +       466     -       dnaA    DW350_RS00005   -       -       chromosomal replication initiator protein DnaA
       #1348..2451      +       367     -       dnaN    DW350_RS00010   -       -       DNA polymerase III subunit beta
-      gawk 'BEGIN{OFS=","}{print "\""$1"\"", NR-1, "ptt"}' >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
-    done
-
-    # Generate protein datasets
-    for f in ${OUTDIR}/${path}/*_protein.faa; do
-      # TODO verify order in genomic.gbff == protein.faa
-      biopython.convert -si "${f}" fasta "${f%.*}.faa" fasta |
-      gawk 'BEGIN{OFS=","}{print "\""$1"\"", NR-1, "faa"}' >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
-    done
-
-    # Generate datasets table
-    for f in ${OUTDIR}/${path}/*; do
-      if [[ "$f" =~ ^[^_]+_[^_]+_[^_]+_(.+)\.(.+)$ ]]; then
-        echo "${UID},,\"${f}\",\"${BASH_REMATCH[2]}\",\"${BASH_REMATCH[1]}\"" >>"datasets_${SLURM_ARRAY_TASK_ID}.csv"
-      fi
+      biopython.convert -q "$(
+        cat <<'EOF'
+[0].[
+  join(' - 1..', [description, to_string(length(seq))]),
+  join(' ', [to_string(length(features[?type=='CDS' && qualifiers.translation])), 'proteins']),
+  join(`"\t"`, ['Location', 'Strand', 'Length', 'PID', 'Gene', 'Synonym', 'Code', 'COG', 'Product']),
+  (features[?type=='CDS' && qualifiers.translation].[
+    join('..', [to_string(sum([location.start, `1`])), to_string(location.end)]),
+    [location.strand][?@==`1`] && '+' || '-',
+    length(qualifiers.translation[0]),
+    (qualifiers.db_xref[?starts_with(@, 'GI')].split(':', @)[1])[0] || '-',
+    qualifiers.gene[0] || '-',
+    qualifiers.locus_tag[0] || '-',
+    '-',
+    '-',
+    qualifiers.product[0]
+  ] | [*].join(`"\t"`, [*].to_string(@)) )
+] | []
+EOF
+      )" "${f}" genbank "${f%.*}.ptt" text
+      echo "${uid},${seqid},\"${path}/${prefix}.ptt\",ptt,\"${suffix}\"" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
     done
   done
 
-echo "Populating summary and datasets table.."
+echo "Populating assembly, summaries and datasets tables.."
 sqlite3 -bail "${DBPATH}" <<EOF
-PRAGMA foreign_keys = ON;
+-- PRAGMA foreign_keys = ON;
+.read ${SRCDIR}/temp_tables.sql
 .mode csv
-# To trigger the autoincrement function on the 'id' column, the csv must be imported into a temporary table and copied over
-CREATE TEMPORARY TABLE summary_noid AS SELECT * FROM summary WHERE 0;
-ALTER TABLE summary_noid DROP COLUMN id;
-.import summary_${SLURM_ARRAY_TASK_ID}.csv summary_noid
-INSERT INTO summary SELECT NULL, * FROM summary_noid;
-.import datasets_${SLURM_ARRAY_TASK_ID}.csv datasets
-EOF
+.import assembly_${SLURM_ARRAY_TASK_ID}.csv assembly
 
-# TODO import replicon_idx_XX.csv into temporary table and run update to relink all datasets in datasets table
+.import summary_${SLURM_ARRAY_TASK_ID}.csv summary_noid
+INSERT INTO summaries SELECT NULL, * FROM summary_noid;
+
+.import datasets_${SLURM_ARRAY_TASK_ID}.csv replicon_idx
+INSERT INTO datasets SELECT uid, NULL, path, format, suffix FROM replicon_idx;
+DELETE FROM replicon_idx;
+
+.import replicon_idx_${SLURM_ARRAY_TASK_ID}.csv replicon_idx
+INSERT INTO datasets SELECT r.uid as uid, s.id as replicon, r.path as path, r.format as format, r.suffix as suffix
+FROM replicon_idx r JOIN summaries s ON s.uid == r.uid AND s.seqid == r.seqid;
+EOF
 
 echo "Done."

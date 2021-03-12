@@ -27,3 +27,5 @@ SELECT LAST_VALUE(n) FROM subClassOf;
 - [Entrez CLI](https://www.ncbi.nlm.nih.gov/books/NBK179288/)
 - [SQLite3](https://www.sqlite.org/download.html)
 - [GNU awk](https://www.gnu.org/software/gawk/)
+- [parallel](https://www.gnu.org/software/parallel/)
+- [gzip](https://www.gnu.org/software/gzip/)
