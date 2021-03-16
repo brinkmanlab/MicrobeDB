@@ -27,7 +27,7 @@ if [ "$VERSION" != '0.3' ]; then
   exit 1
 fi
 
-# Remove non-refseq records and .uids
+# Remove non-refseq records and .uids list
 jq '.result | del(.uids) | with_entries(select(.value.rsuid != ""))' "${SLURM_ARRAY_TASK_ID}_raw.json" >"${SLURM_ARRAY_TASK_ID}.json"
 
 # Populate 'assembly' table
@@ -106,6 +106,8 @@ rm -f "datasets_${SLURM_ARRAY_TASK_ID}.csv" "summary_${SLURM_ARRAY_TASK_ID}.csv"
 TOSCHEMA='BEGIN{OFS=","}/^[^#]/{print UID, "\""$1"\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic"}' # gawk script to convert summary GFF3 to replicon_idx schema
 cat "${SLURM_ARRAY_TASK_ID}.paths" |
   while IFS=$'\t' read -r uid path; do
+    [[ -d $path ]] || continue  # Only process paths actually downloaded by rsync
+
     if [[ -z $SKIP_RSYNC ]]; then
       # Decompress all files
       echo "Decompressing ${path}.."
@@ -243,6 +245,8 @@ sqlite3 -bail "${DBPATH}" <<EOF
 -- PRAGMA foreign_keys = ON;
 .read ${SRCDIR}/temp_tables.sql
 .mode csv
+
+BEGIN TRANSACTION;
 .import assembly_${SLURM_ARRAY_TASK_ID}.csv assembly
 
 .import summary_${SLURM_ARRAY_TASK_ID}.csv summary_noid
@@ -255,6 +259,7 @@ DELETE FROM replicon_idx;
 .import replicon_idx_${SLURM_ARRAY_TASK_ID}.csv replicon_idx
 INSERT INTO datasets SELECT r.uid as uid, s.id as replicon, r.path as path, r.format as format, r.suffix as suffix
 FROM replicon_idx r JOIN summaries s ON s.uid == r.uid AND s.seqid == r.seqid;
+END TRANSACTION;
 EOF
 
 echo "Done."
