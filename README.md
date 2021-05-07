@@ -1,7 +1,23 @@
 # MicrobeDB
 
 ## How to access
-MicrobeDB is distributed using the CERN VM File System (CVMFS).  
+MicrobeDB is distributed using the CERN VM File System (CVMFS). Docker and CSI deployment recipes are available in `./destinations`.
+The recipes are executed by [Terraform](https://www.terraform.io/).
+
+Docker may fail to unmount CVMFS during shutdown, run `sudo fusermount -u ./microbedb/mount` if you encounter `transport endpoint is not connected` errors.
+
+### OSX Peculiarities
+
+OSX does not natively support Docker, it runs Docker within a Linux virtual machine. This workaround means that support is limited to only the most
+basic use case. While mounting MicrobeDB via CVMFS, it will fail with an error.
+
+To work around this CVMFS must be installed and configured manually. First ensure that [FUSE](http://osxfuse.github.io/) is enabled by
+running `kextstat | grep -i fuse`. Download the [CVMFS package](https://ecsft.cern.ch/dist/cvmfs/cvmfs-2.8.0/cvmfs-2.8.0.pkg). Install the pkg and
+reboot. Copy [../destinations/docker/cvmfs.config](../destinations/docker/cvmfs.config) to `/etc/cvmfs/default.local`.
+Copy [./microbedb.brinkmanlab.ca.pub](./microbedb.brinkmanlab.ca.pub) to `/etc/cvmfs/keys/microbedb.brinkmanlab.ca.pub`. Ensure everything is
+configured properly by running `sudo cvmfs_config chksetup`. You **MUST** mount the CVMFS repository under a shared folder as configured in your
+Docker settings for it to be accessible by Docker. By default `/tmp` should be included as a shared folder and you can mount the repository to `/tmp/microbedb`. 
+Ensure `/tmp/microbedb` exists and run `sudo mount -t cvmfs microbedb.brinkmanlab.ca /tmp/microbedb`.
 
 ## Schema documentation
 Run `sqlite3 microbedb.sqlite '.schema'` to view documentation of the various tables and columns.
@@ -16,7 +32,7 @@ WITH RECURSIVE
     VALUES('<query_tax_id>')
     UNION
     SELECT parent_tax_id FROM taxonomy_nodes, subClassOf
-     WHERE taxonomy_nodes.tax_id=subClassOf.n AND taxonomy_nodes.tax_id != '<ancestor_tax_id>'
+     WHERE taxonomy_nodes.tax_id = subClassOf.n AND taxonomy_nodes.tax_id != '<ancestor_tax_id>'
   )
 SELECT LAST_VALUE(n) FROM subClassOf;
 ```
@@ -29,3 +45,5 @@ SELECT LAST_VALUE(n) FROM subClassOf;
 - [GNU awk](https://www.gnu.org/software/gawk/)
 - [parallel](https://www.gnu.org/software/parallel/)
 - [gzip](https://www.gnu.org/software/gzip/)
+
+Ensure the `find` command supports `-empty` by running `find --help | grep '-empty'`.
