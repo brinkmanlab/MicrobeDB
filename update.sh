@@ -83,14 +83,14 @@ if [[ -n $LOCAL ]]; then
     OUTDIR="${OUTDIR}" DBPATH="${DBPATH}" REPOPATH="${REPOPATH}" SLURM_ARRAY_TASK_ID=$i STEP=$STEP COUNT=$COUNT SKIP_RSYNC=$SKIP_RSYNC SRCDIR="${SRCDIR}" "${SRCDIR}/fetch.sh"
   done
   echo "Running finalize.sh locally.."
-  OUTDIR="${OUTDIR}" DBPATH="${DBPATH}" COUNT=$COUNT "${SRCDIR}/finalize.sh"
+  OUTDIR="${OUTDIR}" DBPATH="${DBPATH}" REPOPATH="${REPOPATH}" COUNT=$COUNT "${SRCDIR}/finalize.sh"
 else
   # Batch submit fetch.sh
   echo "Submitting $COUNT records with fetch.sh to sbatch"
   job=$(sbatch --export=STEP="${STEP}" --export=COUNT="${COUNT}" --export=OUTDIR="${OUTDIR}" --export=DBPATH="${DBPATH}" --export=SRCDIR="${SRCDIR}" --export=REPOPATH="${REPOPATH}" --array="0-${COUNT}:${STEP}%10" "${SRCDIR}/fetch.sh")
   if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
     echo "Scheduling finalize.sh after job ${job} completes"
-    sbatch --export=OUTDIR="${OUTDIR}" --export=DBPATH="${DBPATH}" --export=COUNT="${COUNT}" --export=SRCDIR="${SRCDIR}" --dependency="afterok:${BASH_REMATCH[1]}" "${SRCDIR}/finalize.sh"
+    sbatch --export=OUTDIR="${OUTDIR}" --export=DBPATH="${DBPATH}" --export=COUNT="${COUNT}" --export=REPOPATH="${REPOPATH}" --dependency="afterok:${BASH_REMATCH[1]}" "${SRCDIR}/finalize.sh"
   else
     echo "finalize.sh failed to schedule, sbatch failed to return job id for fetch.sh"
     exit 1
