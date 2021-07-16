@@ -12,6 +12,8 @@ set -e
 # NCBI_API_KEY - Override the API key used to access NCBI Entrez. By default gopass will query the brinkmanlab password store for the key.
 # STEP - Override the number of assemblies processed per job
 # COUNT - Limit the script to the first COUNT number of entries returned by Entrez
+# KEYPATH - Path to stratum0 ssh key on Cedar
+# STRATUM0 - ssh target including user name to access stratum0
 
 QUERY=${QUERY:-'("bacteria"[Organism] OR "archaea"[Organism]) AND ("complete genome"[Assembly Level] OR "reference genome"[RefSeq Category])'}
 OUTDIR=${OUTDIR:-${HOME}/scratch/microbedb}
@@ -19,6 +21,8 @@ DBPATH=${DBPATH:-${OUTDIR}/microbedb.sqlite}
 REPOPATH=${REPOPATH:-'/cvmfs/microbedb.brinkmanlab.ca'}
 SRCDIR="$(dirname "$0")"
 STEP=${STEP:-200} # Number of assemblies to process per job
+KEYPATH=${KEYPATH:-${HOME}/.ssh/cvmfs.pem}
+STRATUM0=${STRATUM0:-'centos@stratum-0.brinkmanlab.ca'}
 
 export NCBI_API_KEY=${NCBI_API_KEY:-$(gopass show 'brinkman/websites/ncbi.nlm.nih.gov/brinkmanlab' api_key)}
 
@@ -32,7 +36,7 @@ fi
 
 # Copy README.md into repository
 cp "${SRCDIR}/README.md" "${OUTDIR}"
-# TODO copy recursive query.sql into outdir
+cp "${SRCDIR}/subclassOf.sh" "${OUTDIR}"
 
 echo "Generating query.."
 esearch -db 'assembly' -query "${QUERY}" >query.xml
@@ -90,7 +94,7 @@ else
   job=$(sbatch --export=STEP="${STEP}" --export=COUNT="${COUNT}" --export=OUTDIR="${OUTDIR}" --export=DBPATH="${DBPATH}" --export=SRCDIR="${SRCDIR}" --export=REPOPATH="${REPOPATH}" --array="0-${COUNT}:${STEP}%10" "${SRCDIR}/fetch.sh")
   if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
     echo "Scheduling finalize.sh after job ${job} completes"
-    sbatch --export=OUTDIR="${OUTDIR}" --export=DBPATH="${DBPATH}" --export=COUNT="${COUNT}" --export=REPOPATH="${REPOPATH}" --dependency="afterok:${BASH_REMATCH[1]}" "${SRCDIR}/finalize.sh"
+    sbatch --export=OUTDIR="${OUTDIR}" --export=DBPATH="${DBPATH}" --export=COUNT="${COUNT}" --export=REPOPATH="${REPOPATH}" --export=STRATUM0="${STRATUM0}" --export=KEYPATH="${KEYPATH}" --dependency="afterok:${BASH_REMATCH[1]}" "${SRCDIR}/finalize.sh"
   else
     echo "finalize.sh failed to schedule, sbatch failed to return job id for fetch.sh"
     exit 1

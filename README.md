@@ -38,6 +38,7 @@ SELECT LAST_VALUE(n) FROM subClassOf;
 ```
 
 ## Build requirements
+- [bash](https://www.gnu.org/software/bash/)
 - [yq](https://pypi.org/project/yq/) which also installs the xq executable
 - [jq](https://stedolan.github.io/jq/download/)
 - [Entrez CLI](https://www.ncbi.nlm.nih.gov/books/NBK179288/)
@@ -45,5 +46,8 @@ SELECT LAST_VALUE(n) FROM subClassOf;
 - [GNU awk](https://www.gnu.org/software/gawk/)
 - [parallel](https://www.gnu.org/software/parallel/)
 - [gzip](https://www.gnu.org/software/gzip/)
+- [biopython.convert](https://pypi.org/project/biopython.convert/)
 
 Ensure the `find` command supports `-empty` by running `find --help | grep '-empty'`.
+The most recent CVMFS commit of the repository must be mounted on all compute nodes.
+`cvmfs_config` must be accessible on all compute nodes.

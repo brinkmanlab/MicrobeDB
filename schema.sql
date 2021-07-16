@@ -1,6 +1,7 @@
 CREATE TABLE assembly
     --- Results from querying NCBI Entrez Assembly database
 (
+    -- Column list order must match order stated in fetch.sh line #39
     "uid"                         TEXT PRIMARY KEY, -- Record Id
     "rsuid"                       TEXT,             -- RefSeq Id
     "gbuid"                       TEXT,             -- GenBank Id
@@ -88,11 +89,11 @@ CREATE TABLE summaries
 CREATE TABLE datasets
     --- Listing of all files
 (
-    "uid"      TEXT REFERENCES assembly ("uid") ON UPDATE CASCADE NOT NULL, -- Foreign key to assembly table
-    "replicon" INTEGER REFERENCES summaries ("id") ON UPDATE CASCADE,       -- Foreign key to summary table, NULL when dataset represents all replicons
-    "path"     TEXT,                                                        -- Path to dataset relative to the database
-    "format"   TEXT,                                                        -- Format of dataset
-    "suffix"   TEXT                                                         -- Filename suffix excluding extension, describes file content
+    "uid"      TEXT REFERENCES assembly ("uid") ON UPDATE CASCADE NOT NULL,        -- Foreign key to assembly table
+    "replicon" INTEGER REFERENCES summaries ("id") ON UPDATE CASCADE,              -- Foreign key to summary table, NULL when dataset represents all replicons
+    "path"     TEXT                                               NOT NULL UNIQUE, -- Path to dataset relative to the database
+    "format"   TEXT                                               NOT NULL,        -- Format of dataset (file extension)
+    "suffix"   TEXT                                               NOT NULL         -- Filename suffix excluding extension, describes file content
 );
 
 /* TODO is this table even required?

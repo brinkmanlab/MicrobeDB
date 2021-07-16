@@ -11,7 +11,9 @@ set -e -o pipefail  # Halt on error
 # - Populate the assembly, datasets, and summaries tables
 
 FTP_GENOMES_PREFIX="genomes/" # NCBI rsync server returns error if you try to target root. This variable is the minimum path to avoid that.
+REPONAME="microbedb.brinkmanlab.ca"
 
+# Snap $STOP index to $COUNT if remainder is less than $STEP
 STOP=$((SLURM_ARRAY_TASK_ID + STEP - 1))
 if [[ $STOP -ge $COUNT ]]; then
   STOP=$(($COUNT - 1))
@@ -20,7 +22,7 @@ fi
 echo "Downloading records.."
 efetch -mode json -format docsum -start "$SLURM_ARRAY_TASK_ID" -stop "$STOP" <query.xml >"${SLURM_ARRAY_TASK_ID}_raw.json"
 
-# Verify API version
+# Verify Entrez API version
 VERSION="$(jq -r '.header.version' "${SLURM_ARRAY_TASK_ID}_raw.json")"
 if [ "$VERSION" != '0.3' ]; then
   echo "Unexpected Entrez API version '$VERSION'. Update this script to accept new Entrez response schema."
@@ -55,7 +57,12 @@ EOF
 
 # Download data
 echo "Preparing download lists.."
-# TODO verify that node has most recent commit of CVMFS repo mounted
+# verify that node has most recent commit of CVMFS repo mounted
+if [[ $(cvmfs_config showconfig "$REPONAME" | grep -P 'CVMFS_REPOSITORY_TAG=$|CVMFS_REPOSITORY_DATE=$|CVMFS_ROOT_HASH=$' | wc -l) == 3 ]]; then
+  echo "ERROR: $REPONAME targets commit other than trunk. The diff should be against the most recent commit."
+  exit 1
+fi
+
 # Generate file lists per ftp host (there should only be one but if that ever changes..)
 # Output one file path per line to {hostname}_${SLURM_ARRAY_TASK_ID}.files
 # ${SLURM_ARRAY_TASK_ID}.paths stores the Entrez uid to path mapping
@@ -71,7 +78,7 @@ to_entries | .[].value | {uid: .uid} + (
 ) |
 "\(.uid)\t\(.host)\t\(.path)"
 EOF
-) "${SLURM_ARRAY_TASK_ID}.json" | tee fuck.txt |
+) "${SLURM_ARRAY_TASK_ID}.json" |
   while IFS=$'\t' read -r id host path; do
     # For each assembly, prepare directory and add to rsync --files-from
     mkdir -p "${OUTDIR}/${path}"
@@ -87,10 +94,10 @@ if [[ -z $SKIP_RSYNC ]]; then
       echo "Downloading genomic data from ${BASH_REMATCH[1]}.."
       if [ -d "${REPOPATH}/${FTP_GENOMES_PREFIX}" ]; then
         # Sync comparing to existing CVMFS repo
-        rsync -rvcm --files-from="${files}" --compare-dest="${REPOPATH}/${FTP_GENOMES_PREFIX}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
+        rsync -rvcm --no-g --no-p --files-from="${files}" --compare-dest="${REPOPATH}/${FTP_GENOMES_PREFIX}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
       else
         # Download everything without comparing
-        rsync -rvcm --files-from="${files}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
+        rsync -rvcm --no-g --no-p --files-from="${files}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
       fi
     fi
   done
