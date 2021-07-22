@@ -1,3 +1,11 @@
+data "http" "servers" {
+  url = "http://stratum-0.brinkmanlab.ca/cvmfs/info/v1/meta.json"
+
+  request_headers = {
+    Accept = "application/json"
+  }
+}
+
 module "cvmfs" {
   source = "github.com/brinkmanlab/cloud_recipes.git//util/k8s/cvmfs"
   cvmfs_keys = {
@@ -6,5 +14,5 @@ module "cvmfs" {
   cvmfs_repo_tags = var.tag == null ? null : {
     "microbedb.brinkmanlab.ca" = var.tag
   }
-  servers = ["http://stratum-1.sfu.brinkmanlab.ca/cvmfs/@fqrn@", "http://stratum-1.cedar.brinkmanlab.ca/cvmfs/@fqrn@"]
+  servers = jsondecode(data.http.servers.body)["recommended-stratum1s"]
 }

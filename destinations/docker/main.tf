@@ -2,6 +2,14 @@ resource "docker_image" "microbedb" {
   name = "cvmfs/service"
 }
 
+data "http" "servers" {
+  url = "http://stratum-0.brinkmanlab.ca/cvmfs/info/v1/meta.json"
+
+  request_headers = {
+    Accept = "application/json"
+  }
+}
+
 resource "docker_container" "microbedb" {
   image = docker_image.microbedb.latest
   name = "microbedb"
@@ -30,7 +38,7 @@ resource "docker_container" "microbedb" {
   upload {
     file = "/etc/cvmfs/default.d/19-brinkman.conf"
     content = <<EOF
-CVMFS_SERVER_URL="http://stratum-1.sfu.brinkmanlab.ca/cvmfs/@fqrn@;http://stratum-1.cedar.brinkmanlab.ca/cvmfs/@fqrn@"
+CVMFS_SERVER_URL="${join(";", jsondecode(data.http.servers.body)["recommended-stratum1s"])}"
 CVMFS_REPOSITORIES=microbedb.brinkmanlab.ca
 CVMFS_HTTP_PROXY='DIRECT'
 CVMFS_QUOTA_LIMIT='4000'
