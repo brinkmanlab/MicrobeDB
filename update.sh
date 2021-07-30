@@ -21,14 +21,19 @@ set -e
 # KEYPATH - Path to stratum0 ssh key on Cedar
 # STRATUM0 - ssh target including user name to access stratum0
 
+# Create unique working directory
+WORKDIR=${WORKDIR:-$(mktemp -d ${HOME}/scratch/microbedb_update$(date +'%Y_%m_%d').XXXXXXXXX)}
 QUERY=${QUERY:-'("bacteria"[Organism] OR "archaea"[Organism]) AND ("complete genome"[Assembly Level] OR "reference genome"[RefSeq Category])'}
-OUTDIR=${OUTDIR:-${HOME}/scratch/microbedb}
+OUTDIR=${OUTDIR:-${WORKDIR}/microbedb}
 DBPATH=${DBPATH:-${OUTDIR}/microbedb.sqlite}
 REPOPATH=${REPOPATH:-'/cvmfs/microbedb.brinkmanlab.ca'}
 SRCDIR="$(dirname "$0")"
 STEP=${STEP:-200} # Number of assemblies to process per job
 KEYPATH=${KEYPATH:-${HOME}/.ssh/cvmfs.pem}
 STRATUM0=${STRATUM0:-'centos@stratum-0.brinkmanlab.ca'}
+
+cd "$WORKDIR"
+# TODO module load
 
 export NCBI_API_KEY=${NCBI_API_KEY:-$(gopass show 'brinkman/websites/ncbi.nlm.nih.gov/brinkmanlab' api_key)}
 
