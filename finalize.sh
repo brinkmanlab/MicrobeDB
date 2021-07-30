@@ -32,5 +32,5 @@ find "$REPOPATH" -type d -empty -delete
 # $COUNT
 
 #commit transaction
-sudo cvmfs_server publish microbedb.brinkmanlab.ca
+sudo cvmfs_server publish -m 'Automatic sync with NCBI' microbedb.brinkmanlab.ca
 REMOTE
