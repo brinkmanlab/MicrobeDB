@@ -98,10 +98,10 @@ if [[ -z $SKIP_RSYNC ]]; then
       echo "Downloading genomic data from ${BASH_REMATCH[1]}.."
       if [ -d "${REPOPATH}/${FTP_GENOMES_PREFIX}" ]; then
         # Sync comparing to existing CVMFS repo
-        rsync -rvcm --no-g --no-p --files-from="${files}" --compare-dest="${REPOPATH}/${FTP_GENOMES_PREFIX}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
+        rsync -rvcm --no-g --no-p --chmod=o+rX --files-from="${files}" --compare-dest="${REPOPATH}/${FTP_GENOMES_PREFIX}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
       else
         # Download everything without comparing
-        rsync -rvcm --no-g --no-p --files-from="${files}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
+        rsync -rvcm --no-g --no-p --chmod=o+rX --files-from="${files}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
       fi
     fi
   done
