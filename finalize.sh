@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 #SBATCH --account=rpp-fiona
 #SBATCH --job-name=microbedb-finalize
+#SBATCH --mail-user=brinkman-ws+microbedb@sfu.ca
+#SBATCH --mail-type=END
+#SBATCH --mail-type=FAIL
 
 #open cvmfs transaction
 ssh -i ${KEYPATH} ${STRATUM0} <<REMOTE

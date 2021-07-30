@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 #SBATCH --account=rpp-fiona
+#SBATCH --time=00:59:00
 #SBATCH --job-name=microbedb-fetch
+#SBATCH --mem-per-cpu=2000M
+#SBATCH --mail-user=brinkman-ws+microbedb@sfu.ca
+#SBATCH --mail-type=FAIL
 set -e -o pipefail  # Halt on error
 
 

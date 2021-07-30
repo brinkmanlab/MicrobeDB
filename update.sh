@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+#SBATCH --account=rpp-fiona
+#SBATCH --time=00:15:00
+#SBATCH --job-name=microbedb-update
+#SBATCH --mail-user=brinkman-ws+microbedb@sfu.ca
+#SBATCH --mail-type=BEGIN
+#SBATCH --mail-type=FAIL
 set -e
 
 # This script is responsible for rebuilding/updating MicrobeDB from scratch
