@@ -67,6 +67,7 @@ CREATE TABLE assembly
 CREATE TABLE summaries
     --- Statistics generated from the genomic datasets. One record per replicon.
 (
+    -- Column list order must match order stated in fetch.sh line #170
     "id"                  INTEGER PRIMARY KEY,                                         -- Alias of rowid
     "uid"                 TEXT REFERENCES assembly ("uid") ON UPDATE CASCADE NOT NULL, -- Foreign key to assembly table
     "seqid"               TEXT                                               NOT NULL, -- Replicon Id
@@ -95,16 +96,6 @@ CREATE TABLE datasets
     "format"   TEXT                                               NOT NULL,        -- Format of dataset (file extension)
     "suffix"   TEXT                                               NOT NULL         -- Filename suffix excluding extension, describes file content
 );
-
-/* TODO is this table even required?
-CREATE TABLE metadata
-    --- Genome metadata
-(
-    "uid" TEXT REFERENCES assembly ("uid") ON UPDATE CASCADE NOT NULL -- Foreign key to assembly table
-    TODO gram stain
-    TODO chromosome, plasmid counts
-);
-*/
 
 CREATE TABLE taxonomy_names
     --- Names of tax_ids in taxonomy_nodes table. Multiple records exist per tax_id.
@@ -177,4 +168,118 @@ CREATE TABLE taxonomy_citations
     taxid_list TEXT                 -- list of node ids separated by a single space
 );
 
---- TODO genomeproject, genomeproject_meta, replicon, taxonomy table views
+CREATE VIEW metadata
+    --- Genome metadata. gram_stain data is approximated based on taxonomic relation
+AS
+SELECT s.uid,
+       s.chromosomes,
+       s.plasmids,
+       (CASE
+            WHEN t.phylum IN ('Actinobacteria', 'Chloroflexi', 'Firmicutes') THEN '+'
+            WHEN t.genus == 'Chlorobi' OR t.phylum IN
+                                          ('Acidobacteria', 'Aquificae', 'Bacteroidetes', 'Deinococcus-Thermus', 'Chlamydiae', 'Cyanobacteria',
+                                           'Elusimicrobia', 'Fusobacteria', 'Nitrospirae', 'Planctomycetes', 'Proteobacteria', 'Spirochaetes',
+                                           'Tenericutes', 'Thermotogae', 'Verrucomicrobia', 'Dictyoglomi') THEN '-' END) as gram_stain
+FROM (
+         SELECT uid,
+                COUNT(CASE type WHEN 'chromosome' THEN 1 END) as chromosomes,
+                COUNT(CASE type WHEN 'plasmid' THEN 1 END)    as plasmids
+         FROM summaries
+         GROUP BY uid
+     ) as s
+         JOIN assembly a ON s.uid == s.uid
+         JOIN taxonomy t ON t.taxon_id == a.taxid;
+
+CREATE VIEW genomeproject
+    --- Depreciated. This view is included for backwards compatibility only.
+AS
+SELECT assembly.uid                                                                                                              AS gpv_id,
+       assemblyaccession                                                                                                         AS assembly_accession,
+       assemblyname                                                                                                              AS asm_name,
+       replace(speciesname, ' ', '_')                                                                                            AS genome_name,
+       json_extract(rs_bioprojects, '$[0].bioprojectaccn')                                                                       AS bioproject,
+       biosampleaccn                                                                                                             AS biosample,
+       taxid                                                                                                                     AS taxid,
+       speciestaxid                                                                                                              AS species_taxid,
+       speciesname                                                                                                               AS org_name,
+       json_extract(biosource_infraspecieslist, '$[0].sub_type') | '=' |
+       json_extract(biosource_infraspecieslist, '$[0].sub_value')                                                                AS infraspecific_name,
+       submitterorganization                                                                                                     AS submitter,
+       seqreleasedate                                                                                                            AS release_date,
+       rtrim(datasets.path, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.[]()-_')                             AS gpv_directory,
+       replace(datasets.path, rtrim(datasets.path, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.[]()-_'), '') AS filename,
+       ' .' | group_concat(datasets.format, ' .')                                                                                AS file_types,
+       NULL                                                                                                                      AS prev_gpv
+FROM assembly,
+     datasets
+WHERE assembly.uid = datasets.uid
+GROUP BY datasets.uid;
+
+
+CREATE VIEW replicon
+    --- Depreciated. This view is included for backwards compatibility only.
+AS
+SELECT id                                                                                        AS rpv_id,
+       summaries.uid                                                                             AS gpv_id,
+       accession                                                                                 AS rep_accnum,
+       sequence_version                                                                          AS rep_version,
+       description                                                                               AS definition,
+       type                                                                                      AS rep_type,
+       gi_number                                                                                 AS rep_ginum,
+       rtrim(rtrim(replace(datasets.path, rtrim(datasets.path, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.[]()-_'), ''),
+                   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]()-_'), '.') AS file_name,
+       ' .' | group_concat(datasets.format, ' .')                                                AS file_types,
+       cds_count                                                                                 AS cds_num,
+       gene_count                                                                                AS gene_num,
+       length                                                                                    AS rep_size,
+       rna_count                                                                                 AS rna_num
+FROM summaries,
+     datasets
+WHERE summaries.id = datasets.replicon
+GROUP BY datasets.uid;
+
+CREATE VIEW genomeproject_meta
+    --- Depreciated. This view is included for backwards compatibility only.
+AS
+SELECT metadata.uid AS gpv_id,
+       gram_stain   AS gram_stain,
+       NULL         AS genome_gc,
+       NULL         AS patho_status,
+       NULL         AS disease,
+       NULL         AS genome_size,
+       NULL         AS pathogenic_in,
+       NULL         AS temp_range,
+       NULL         AS habitat,
+       NULL         AS shape,
+       NULL         AS arrangement,
+       NULL         AS endospore,
+       NULL         AS motility,
+       NULL         AS salinity,
+       NULL         AS oxygen_req,
+       chromosomes  AS chromosome_num,
+       plasmids     AS plasmid_num,
+       0            AS contig_num
+FROM metadata;
+
+CREATE VIEW genomeproject_checksum
+    --- Depreciated. This view is included for backwards compatibility only.
+AS
+SELECT replace(datasets.path, rtrim(datasets.path, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.[]()-_'), '') AS filename,
+       ''                                                                                                                        AS checksum,
+       uid                                                                                                                       AS gpv_id
+FROM datasets;
+
+CREATE TABLE taxonomy
+    --- Depreciated. Flattened taxonomy information for each assembly entry. This table is included for backwards compatibility only.
+(
+    taxon_id     TEXT PRIMARY KEY REFERENCES assembly ("taxid") NOT NULL,
+    superkingdom TEXT,
+    phylum       TEXT,
+    tax_class    TEXT,
+    "order"      TEXT,
+    family       TEXT,
+    genus        TEXT,
+    species      TEXT,
+    other        TEXT,
+    synonyms     TEXT
+);
