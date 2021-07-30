@@ -42,6 +42,7 @@ CVMFS_SERVER_URL="${join(";", jsondecode(data.http.servers.body)["recommended-st
 CVMFS_REPOSITORIES=microbedb.brinkmanlab.ca
 CVMFS_HTTP_PROXY='DIRECT'
 CVMFS_QUOTA_LIMIT='4000'
+CVMFS_CHECK_PERMISSIONS=no
 EOF
   }
   mounts {
