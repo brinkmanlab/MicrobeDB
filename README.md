@@ -25,16 +25,16 @@ The assembly table is largely undocumented because NCBI does not document their 
 
 ## Working with taxonomy data
 
-Use SQLite recursive query to determine if tax_id is subclass of ancestor
+Use SQLite recursive query to determine if tax_id is subclass of ancestor. The following returns 1 if the query_tax_id is a subclass of ancestor_tax_id:
 ```sqlite
 WITH RECURSIVE
   subClassOf(n) AS (
-    VALUES('<query_tax_id>')
+    VALUES(query_tax_id)
     UNION
     SELECT parent_tax_id FROM taxonomy_nodes, subClassOf
-     WHERE taxonomy_nodes.tax_id = subClassOf.n AND taxonomy_nodes.tax_id != '<ancestor_tax_id>'
+     WHERE taxonomy_nodes.tax_id = subClassOf.n AND taxonomy_nodes.tax_id != ancestor_tax_id
   )
-SELECT LAST_VALUE(n) FROM subClassOf;
+SELECT 1 FROM subClassOf WHERE n = ancestor_tax_id LIMIT 1;
 ```
 
 ## Build requirements
