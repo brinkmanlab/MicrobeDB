@@ -114,10 +114,10 @@ if [[ -n $LOCAL ]]; then
   # Run scripts locally rather than sbatch
   echo "Running fetch.sh locally for $COUNT records"
   for ((i = 0; i <= $COUNT; i += $STEP)); do
-    OUTDIR="${OUTDIR}" DBPATH="${DBPATH}" REPOPATH="${REPOPATH}" SLURM_ARRAY_TASK_ID=$i STEP=$STEP COUNT=$COUNT SKIP_RSYNC=$SKIP_RSYNC SRCDIR="${SRCDIR}" "${SRCDIR}/fetch.sh"
+    STEP=$STEP COUNT=$COUNT OUTDIR="${OUTDIR}" DBPATH="${DBPATH}" SRCDIR="${SRCDIR}" REPOPATH="${REPOPATH}" SLURM_ARRAY_TASK_ID=$i SKIP_RSYNC=$SKIP_RSYNC "${SRCDIR}/fetch.sh"
   done
   echo "Running finalize.sh locally.."
-  OUTDIR="${OUTDIR}" DBPATH="${DBPATH}" REPOPATH="${REPOPATH}" COUNT=$COUNT "${SRCDIR}/finalize.sh"
+  OUTDIR="${OUTDIR}" DBPATH="${DBPATH}" COUNT=$COUNT REPOPATH="${REPOPATH}" STRATUM0="${STRATUM0}" KEYPATH="${KEYPATH}" "${SRCDIR}/finalize.sh"
 else
   # Batch submit fetch.sh
   echo "Submitting $COUNT records with fetch.sh to sbatch"
