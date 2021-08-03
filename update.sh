@@ -91,6 +91,8 @@ PRAGMA foreign_keys = ON;
 EOF
 fi
 
+chmod -R o+rX "$WORKDIR"
+
 if [[ -n $LOCAL ]]; then
   # Run scripts locally rather than sbatch
   echo "Running fetch.sh locally for $COUNT records"
