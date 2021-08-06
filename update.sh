@@ -115,7 +115,7 @@ if [[ -n $LOCAL ]]; then
 else
   # Batch submit fetch.sh
   echo "Submitting $COUNT records with fetch.sh to sbatch"
-  job=$(sbatch --array="0-${COUNT}%10:${STEP}" "${SRCDIR}/fetch.sh")
+  job=$(sbatch --array="1-${COUNT}%10:${STEP}" "${SRCDIR}/fetch.sh")
   if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
     echo "Scheduling finalize.sh after job ${job} completes"
     sbatch --dependency="afterok:${BASH_REMATCH[1]}" "${SRCDIR}/finalize.sh"

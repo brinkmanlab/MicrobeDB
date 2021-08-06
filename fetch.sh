@@ -18,14 +18,15 @@ set -e -o pipefail  # Halt on error
 FTP_GENOMES_PREFIX="genomes/" # NCBI rsync server returns error if you try to target root. This variable is the minimum path to avoid that.
 REPONAME="microbedb.brinkmanlab.ca"
 
+START=$((SLURM_ARRAY_TASK_ID - 1)) # SLURM arrays are 1-indexed
 # Snap $STOP index to $COUNT if remainder is less than $STEP
-STOP=$((SLURM_ARRAY_TASK_ID + STEP - 1))
+STOP=$((START + STEP - 1))
 if [[ $STOP -ge $COUNT ]]; then
   STOP=$(($COUNT - 1))
 fi
 
 echo "Downloading records.."
-efetch -mode json -format docsum -start "$SLURM_ARRAY_TASK_ID" -stop "$STOP" <query.xml >"${SLURM_ARRAY_TASK_ID}_raw.json"
+efetch -mode json -format docsum -start "$START" -stop "$STOP" <query.xml >"${SLURM_ARRAY_TASK_ID}_raw.json"
 
 # Verify Entrez API version
 VERSION="$(jq -r '.header.version' "${SLURM_ARRAY_TASK_ID}_raw.json")"
