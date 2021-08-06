@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --account=rpp-fiona
+#SBATCH --account=rrg-fiona-ad
 #SBATCH --time=00:15:00
 #SBATCH --job-name=microbedb-update
 #SBATCH --export=ALL

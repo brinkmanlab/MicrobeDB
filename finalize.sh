@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --account=rpp-fiona
+#SBATCH --account=rrg-fiona-ad
 #SBATCH --job-name=microbedb-finalize
 #SBATCH --export=ALL
 #SBATCH --mail-user=brinkman-ws+microbedb@sfu.ca
