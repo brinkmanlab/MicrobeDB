@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #SBATCH --account=rpp-fiona
 #SBATCH --job-name=microbedb-finalize
+#SBATCH --export=ALL
 #SBATCH --mail-user=brinkman-ws+microbedb@sfu.ca
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
