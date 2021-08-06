@@ -22,6 +22,7 @@ set -e
 # KEYPATH - Path to stratum0 ssh key on Cedar
 # STRATUM0 - ssh target including user name to access stratum0
 # EDIRECT - Path to Entrez edirect folder
+# NOCOMMIT - Skip copying to stratum0 and committing
 
 # Create unique working directory
 export WORKDIR=${WORKDIR:-$(mktemp -d ${HOME}/scratch/microbedb_update$(date +'%Y_%m_%d').XXXXXXXXX)}

@@ -30,16 +30,17 @@ INSERT OR REPLACE INTO taxonomy ("taxon_id","superkingdom","phylum","tax_class",
 EOF
 done
 
-#open cvmfs transaction
-ssh -i ${KEYPATH} ${STRATUM0} <<REMOTE
+if [[ -z $NOCOMMIT ]]; then
+  #open cvmfs transaction
+  ssh -i ${KEYPATH} ${STRATUM0} <<REMOTE
 sudo cvmfs_server transaction microbedb.brinkmanlab.ca
 REMOTE
 
-#rsync all files to stratum0
-rsync -av --no-g -e "ssh -i ${KEYPATH}" "${OUTDIR}"/* "${STRATUM0}:${REPOPATH}"
+  #rsync all files to stratum0
+  rsync -av --no-g -e "ssh -i ${KEYPATH}" "${OUTDIR}"/* "${STRATUM0}:${REPOPATH}"
 
-#execute remaining tasks on stratum0
-ssh -i "${KEYPATH}" "${STRATUM0}" <<REMOTE
+  #execute remaining tasks on stratum0
+  ssh -i "${KEYPATH}" "${STRATUM0}" <<REMOTE
 # delete all files not referenced in the database
 if [[ -f ${REPOPATH}/microbedb.sqlite ]]; then
   sqlite3 -bail "${DBPATH}" <<EOF | xargs -I % rm -rfdv "${REPOPATH}/%"
@@ -58,3 +59,6 @@ find "$REPOPATH" -type d -empty -delete
 #commit transaction
 sudo cvmfs_server publish -m 'Automatic sync with NCBI' microbedb.brinkmanlab.ca
 REMOTE
+fi
+
+echo "Done."
