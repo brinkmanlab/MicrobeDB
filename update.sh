@@ -36,6 +36,7 @@ export STRATUM0=${STRATUM0:-'centos@stratum-0.brinkmanlab.ca'}
 export PATH=${PATH}:${EDIRECT:-$(realpath "$SRCDIR"/edirect)}
 
 cd "$WORKDIR"
+echo "WORKDIR: $WORKDIR"
 
 module load python/3.9.6
 source "$SRCDIR"/venv/bin/activate
