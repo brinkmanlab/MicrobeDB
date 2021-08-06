@@ -5,6 +5,7 @@
 #SBATCH --mail-user=brinkman-ws+microbedb@sfu.ca
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
+set -e -o pipefail  # Halt on error
 
 # Populate taxonomy table
 sqlite3 -bail "${DBPATH}" 'SELECT uid, taxid FROM assembly;' | while IFS='|' read uid taxid; do
