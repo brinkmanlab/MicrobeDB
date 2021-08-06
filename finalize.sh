@@ -60,6 +60,8 @@ find "$REPOPATH" -type d -empty -delete
 #commit transaction
 sudo cvmfs_server publish -m 'Automatic sync with NCBI' microbedb.brinkmanlab.ca
 REMOTE
+  echo "Cleaning up download directory.."
+  rm -rf "$OUTDIR"
 fi
 
 echo "Done."
