@@ -114,6 +114,12 @@ if [[ -n $LOCAL ]]; then
   "$SRCDIR"/finalize.sh
 else
   # Batch submit fetch.sh
+  MAXARRAYSIZE=$(scontrol show config | grep MaxArraySize | grep -oP '\d+')
+  if [[ $MAXARRAYSIZE -lt $COUNT ]]; then
+    echo "SLURM MaxArraySize is less than the number of records to process: $COUNT > $MAXARRAYSIZE"
+    echo "This is possibly due to a misconfiguration of max_array_tasks and MaxArraySize in the SLURM config."
+    exit 1
+  fi
   echo "Submitting $COUNT records with fetch.sh to sbatch"
   job=$(sbatch --array=0-${COUNT}%10:${STEP} "${SRCDIR}/fetch.sh")
   if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
