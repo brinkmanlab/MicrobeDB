@@ -1,4 +1,4 @@
 .terraform
 /edirect
 /venv
-
+/NCBI_API_KEY

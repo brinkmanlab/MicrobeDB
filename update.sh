@@ -16,7 +16,7 @@ set -e
 # OUTDIR - Override the staging folder where the data will be generated
 # DBPATH - Override the path to where the sqlite database will be generated
 # REPOPATH - Override the path to where the current CVMFS MicrobeDB repo is mounted. This is compared against while downloading/cleaning data.
-# NCBI_API_KEY - Override the API key used to access NCBI Entrez. By default gopass will query the brinkmanlab password store for the key.
+# NCBI_API_KEY - Override the API key used to access NCBI Entrez. By default it will check for a 'NCBI_API_KEY' file containing the key or gopass will query the brinkmanlab password store for the key.
 # STEP - Override the number of assemblies processed per job
 # COUNT - Limit the script to the first COUNT number of entries returned by Entrez
 # KEYPATH - Path to stratum0 ssh key on Cedar
@@ -29,7 +29,7 @@ export QUERY=${QUERY:-'("bacteria"[Organism] OR "archaea"[Organism]) AND ("compl
 export OUTDIR=${OUTDIR:-${WORKDIR}/microbedb}
 export DBPATH=${DBPATH:-${OUTDIR}/microbedb.sqlite}
 export REPOPATH=${REPOPATH:-'/cvmfs/microbedb.brinkmanlab.ca'}
-export SRCDIR="$(dirname "$0")"
+export SRCDIR="$(realpath $(dirname "$0"))"
 export STEP=${STEP:-200} # Number of assemblies to process per job
 export KEYPATH=${KEYPATH:-${HOME}/.ssh/cvmfs.pem}
 export STRATUM0=${STRATUM0:-'centos@stratum-0.brinkmanlab.ca'}
@@ -38,7 +38,11 @@ export PATH=${PATH}:${EDIRECT:-$(realpath "$SRCDIR"/edirect)}
 cd "$WORKDIR"
 
 module load python/3.9.6
-source $SRCDIR/venv/bin/activate
+source "$SRCDIR"/venv/bin/activate
+
+if [[ -f "$SRCDIR"/NCBI_API_KEY ]]; then
+  NCBI_API_KEY="$(cat "$SRCDIR"/NCBI_API_KEY)"
+fi
 
 export NCBI_API_KEY=${NCBI_API_KEY:-$(gopass show 'brinkman/websites/ncbi.nlm.nih.gov/brinkmanlab' api_key)}
 
