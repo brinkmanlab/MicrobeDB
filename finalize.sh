@@ -34,6 +34,7 @@ done
 if [[ -z $NOCOMMIT ]]; then
   #open cvmfs transaction
   ssh -i ${KEYPATH} ${STRATUM0} <<REMOTE
+sudo ulimit -n 1048576  # CVMFS holds open file handles on all touched files during a transaction
 sudo cvmfs_server transaction microbedb.brinkmanlab.ca
 REMOTE
 
