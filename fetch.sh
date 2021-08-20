@@ -18,14 +18,15 @@ set -e -o pipefail  # Halt on error
 FTP_GENOMES_PREFIX="genomes/" # NCBI rsync server returns error if you try to target root. This variable is the minimum path to avoid that.
 REPONAME="microbedb.brinkmanlab.ca"
 
+START=$((SLURM_ARRAY_TASK_ID * STEP))  # Handle # https://support.computecanada.ca/otrs/customer.pl?Action=CustomerTicketZoom;TicketID=135515
 # Snap $STOP index to $COUNT if remainder is less than $STEP
 STOP=$((SLURM_ARRAY_TASK_ID + STEP - 1))
 if [[ $STOP -ge $COUNT ]]; then
-  STOP=$(($COUNT - 1))
+  STOP=$((COUNT - 1))
 fi
 
 echo "Downloading records.."
-efetch -mode json -format docsum -start "$SLURM_ARRAY_TASK_ID" -stop "$STOP" <query.xml >"${SLURM_ARRAY_TASK_ID}_raw.json"
+efetch -mode json -format docsum -start "$START" -stop "$STOP" <query.xml >"${SLURM_ARRAY_TASK_ID}_raw.json"
 
 # Verify Entrez API version
 VERSION="$(jq -r '.header.version' "${SLURM_ARRAY_TASK_ID}_raw.json")"
@@ -99,10 +100,10 @@ if [[ -z $SKIP_RSYNC ]]; then
       echo "Downloading genomic data from ${BASH_REMATCH[1]}.."
       if [ -d "${REPOPATH}/${FTP_GENOMES_PREFIX}" ]; then
         # Sync comparing to existing CVMFS repo
-        rsync -rvcm --no-g --no-p --chmod=o+rX --files-from="${files}" --compare-dest="${REPOPATH}/${FTP_GENOMES_PREFIX}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
+        rsync -rvcm --no-g --no-p --chmod=ugo+rX --files-from="${files}" --compare-dest="${REPOPATH}/${FTP_GENOMES_PREFIX}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
       else
         # Download everything without comparing
-        rsync -rvcm --no-g --no-p --chmod=o+rX --files-from="${files}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
+        rsync -rvcm --no-g --no-p --chmod=ugo+rX --files-from="${files}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
       fi
     fi
   done
