@@ -102,7 +102,7 @@ PRAGMA foreign_keys = ON;
 EOF
 fi
 
-chmod -R o+rX "$WORKDIR"
+chmod -R ugo+rX "$WORKDIR"
 
 if [[ -n $LOCAL ]]; then
   # Run scripts locally rather than sbatch
