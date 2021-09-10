@@ -102,6 +102,7 @@ PRAGMA foreign_keys = ON;
 EOF
 fi
 
+echo "Setting folder permissions.."
 chmod -R ugo+rX "$WORKDIR"
 
 if [[ -n $LOCAL ]]; then
@@ -115,6 +116,7 @@ if [[ -n $LOCAL ]]; then
 else
   # Batch submit fetch.sh
   # Handle https://support.computecanada.ca/otrs/customer.pl?Action=CustomerTicketZoom;TicketID=135515
+  echo "Calculating max array size.."
   TASKCOUNT=$((COUNT / STEP))
   if [[ $COUNT -gt $STEP && $((COUNT % STEP)) -ne 0 ]]; then let ++TASKCOUNT; fi
   MAXARRAYSIZE=$(scontrol show config | grep MaxArraySize | grep -oP '\d+')
@@ -126,8 +128,9 @@ else
   echo "Submitting $COUNT records with fetch.sh to sbatch"
   job=$(sbatch --array=0-${TASKCOUNT}%10 "${SRCDIR}/fetch.sh")
   if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
-    echo "Scheduling finalize.sh after job ${job} completes"
+    echo "Scheduling finalize.sh after job ${BASH_REMATCH[1]} completes"
     sbatch --dependency="afterok:${BASH_REMATCH[1]}" "${SRCDIR}/finalize.sh"
+    echo "Run 'squeue -rj ${BASH_REMATCH[1]}' to monitor progress"
   else
     echo "finalize.sh failed to schedule, sbatch failed to return job id for fetch.sh"
     exit 1

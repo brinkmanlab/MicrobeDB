@@ -6,8 +6,7 @@
 #SBATCH --export=ALL
 #SBATCH --mail-user=brinkman-ws+microbedb@sfu.ca
 #SBATCH --mail-type=FAIL
-set -e -o pipefail  # Halt on error
-
+set -e -o pipefail            # Halt on error
 
 # For each chunk of the query results:
 # - Download genomic data from NCBI
@@ -18,7 +17,7 @@ set -e -o pipefail  # Halt on error
 FTP_GENOMES_PREFIX="genomes/" # NCBI rsync server returns error if you try to target root. This variable is the minimum path to avoid that.
 REPONAME="microbedb.brinkmanlab.ca"
 
-START=$((SLURM_ARRAY_TASK_ID * STEP))  # Handle # https://support.computecanada.ca/otrs/customer.pl?Action=CustomerTicketZoom;TicketID=135515
+START=$((SLURM_ARRAY_TASK_ID * STEP)) # Handle # https://support.computecanada.ca/otrs/customer.pl?Action=CustomerTicketZoom;TicketID=135515
 # Snap $STOP index to $COUNT if remainder is less than $STEP
 STOP=$((SLURM_ARRAY_TASK_ID + STEP - 1))
 if [[ $STOP -ge $COUNT ]]; then
@@ -100,6 +99,9 @@ if [[ -z $SKIP_RSYNC ]]; then
       echo "Downloading genomic data from ${BASH_REMATCH[1]}.."
       if [ -d "${REPOPATH}/${FTP_GENOMES_PREFIX}" ]; then
         # Sync comparing to existing CVMFS repo
+        # TODO --out-format=FORMAT      output updates using the specified FORMAT
+        #--log-file=FILE          log what we're doing to the specified FILE
+        #--log-file-format=FMT    log updates using the specified FMT
         rsync -rvcm --no-g --no-p --chmod=ugo+rX --files-from="${files}" --compare-dest="${REPOPATH}/${FTP_GENOMES_PREFIX}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
       else
         # Download everything without comparing
@@ -119,7 +121,7 @@ rm -f "datasets_${SLURM_ARRAY_TASK_ID}.csv" "summary_${SLURM_ARRAY_TASK_ID}.csv"
 TOSCHEMA='BEGIN{OFS=","}/^[^#]/{print UID, "\""$1"\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic"}' # gawk script to convert summary GFF3 to replicon_idx schema
 cat "${SLURM_ARRAY_TASK_ID}.paths" |
   while IFS=$'\t' read -r uid path; do
-    [[ -d $path ]] || continue  # Only process paths actually downloaded by rsync
+    [[ -d $path ]] || continue # Only process paths actually downloaded by rsync
 
     if [[ -z $SKIP_RSYNC ]]; then
       # Decompress all files
