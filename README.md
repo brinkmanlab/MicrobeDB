@@ -40,7 +40,7 @@ SELECT 1 FROM subClassOf WHERE n = ancestor_tax_id LIMIT 1;
 ## Build requirements
 - [bash](https://www.gnu.org/software/bash/)
 - [yq](https://pypi.org/project/yq/) which also installs the xq executable
-- [jq](https://stedolan.github.io/jq/download/)
+- [jq](https://stedolan.github.io/jq/download/) compiled with ONIGURUMA regex libary
 - [Entrez CLI](https://www.ncbi.nlm.nih.gov/books/NBK179288/)
 - [SQLite3](https://www.sqlite.org/download.html)
 - [GNU awk](https://www.gnu.org/software/gawk/)

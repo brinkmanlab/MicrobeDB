@@ -2,9 +2,10 @@
 #SBATCH --account=rrg-fiona-ad
 #SBATCH --job-name=microbedb-finalize
 #SBATCH --export=ALL
-#SBATCH --mail-user=brinkman-ws+microbedb@sfu.ca
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
+#SBATCH --mail-user=nolan_w@sfu.ca
+# brinkman-ws+microbedb@sfu.ca
 set -e -o pipefail  # Halt on error
 
 # Populate taxonomy table
