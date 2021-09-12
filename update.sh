@@ -3,9 +3,9 @@
 #SBATCH --time=00:15:00
 #SBATCH --job-name=microbedb-update
 #SBATCH --export=ALL
-#SBATCH --mail-user=brinkman-ws+microbedb@sfu.ca
-#SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=FAIL
+#SBATCH --mail-user=nolan_w@sfu.ca
+# brinkman-ws+microbedb@sfu.ca
 set -e
 
 # This script is responsible for rebuilding/updating MicrobeDB from scratch

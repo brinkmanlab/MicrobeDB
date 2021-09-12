@@ -4,8 +4,9 @@
 #SBATCH --job-name=microbedb-fetch
 #SBATCH --mem-per-cpu=2000M
 #SBATCH --export=ALL
-#SBATCH --mail-user=brinkman-ws+microbedb@sfu.ca
 #SBATCH --mail-type=FAIL
+#SBATCH --mail-user=nolan_w@sfu.ca
+# brinkman-ws+microbedb@sfu.ca
 set -e -o pipefail            # Halt on error
 
 # For each chunk of the query results:
@@ -53,7 +54,7 @@ EOF
 # Download data
 echo "Preparing download lists.."
 # verify that node has most recent commit of CVMFS repo mounted
-if [[ $(cvmfs_config showconfig "$REPONAME" | grep -P 'CVMFS_REPOSITORY_TAG=$|CVMFS_REPOSITORY_DATE=$|CVMFS_ROOT_HASH=$' | wc -l) == 3 ]]; then
+if [[ -d "${REPOPATH}/${FTP_GENOMES_PREFIX}" && $(cvmfs_config showconfig "$REPONAME" | grep -P 'CVMFS_REPOSITORY_TAG=$|CVMFS_REPOSITORY_DATE=$|CVMFS_ROOT_HASH=$' | wc -l) == 3 ]]; then
   echo "ERROR: $REPONAME targets commit other than trunk. The diff should be against the most recent commit."
   exit 1
 fi
@@ -87,7 +88,7 @@ if [[ -z $SKIP_RSYNC ]]; then
   for files in *_${SLURM_ARRAY_TASK_ID}.files; do
     if [[ "${files}" =~ ^(.*)_[[:digit:]]+\.files$ ]]; then
       echo "Downloading genomic data from ${BASH_REMATCH[1]}.."
-      if [ -d "${REPOPATH}/${FTP_GENOMES_PREFIX}" ]; then
+      if [[ -d "${REPOPATH}/${FTP_GENOMES_PREFIX}" ]]; then
         # Sync comparing to existing CVMFS repo
         # TODO --out-format=FORMAT      output updates using the specified FORMAT
         #--log-file=FILE          log what we're doing to the specified FILE
