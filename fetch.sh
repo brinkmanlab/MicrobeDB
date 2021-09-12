@@ -24,23 +24,6 @@ if [[ $STOP -ge $COUNT ]]; then
   STOP=$((COUNT - 1))
 fi
 
-echo "Downloading records.."
-efetch -mode json -format docsum -start "$START" -stop "$STOP" <query.xml >"${SLURM_ARRAY_TASK_ID}_raw.json"
-
-# Verify Entrez API version
-VERSION="$(tr '\n' ' ' < "${SLURM_ARRAY_TASK_ID}_raw.json" | jq -r '.header.version')"
-if [ "$VERSION" != '0.3' ]; then
-  echo "Unexpected Entrez API version '$VERSION'. Update this script to accept new Entrez response schema."
-  exit 1
-fi
-
-ERROR="$(tr '\n' ' ' < "${SLURM_ARRAY_TASK_ID}_raw.json" | jq -r '.error')"
-if [[ $ERROR != 'null' ]]; then
-  echo "Failed to fetch subquery from NCBI:"
-  echo "$ERROR"
-  exit 1
-fi
-
 # Remove non-refseq records and .uids list
 jq '.result | del(.uids) | with_entries(select(.value.rsuid != ""))' "${SLURM_ARRAY_TASK_ID}_raw.json" >"${SLURM_ARRAY_TASK_ID}.json"
 

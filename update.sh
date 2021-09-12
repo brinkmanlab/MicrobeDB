@@ -68,6 +68,33 @@ if [[ -z "$COUNT" || "$COUNT" -eq 0 ]]; then
   exit 1
 fi
 
+echo -n "Downloading records.."
+for ((i = 0; i <= $COUNT; i += $STEP)); do
+  CHUNK=$(( i % STEP ))
+  STOP=$((i + STEP - 1))
+  if [[ $STOP -ge $COUNT ]]; then
+    STOP=$((COUNT - 1))
+  fi
+  efetch -mode json -format docsum -start "$i" -stop "$STOP" <query.xml >"${CHUNK}_raw.json"
+
+  # Verify Entrez API version
+  VERSION="$(tr '\n' ' ' < "${CHUNK}_raw.json" | jq -r '.header.version')"
+  if [ "$VERSION" != '0.3' ]; then
+    echo "Unexpected Entrez API version '$VERSION'. Update this script to accept new Entrez response schema."
+    exit 1
+  fi
+
+  ERROR="$(tr '\n' ' ' < "${CHUNK}_raw.json" | jq -r '.error')"
+  if [[ $ERROR != 'null' ]]; then
+    echo "Failed to fetch subquery from NCBI:"
+    echo "$ERROR"
+    exit 1
+  fi
+
+  echo -n "."
+done
+echo
+
 # Prepare microbedb.sqlite
 echo "Preparing database.."
 rm -f "${DBPATH}"
