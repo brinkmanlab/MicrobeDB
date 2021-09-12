@@ -107,12 +107,13 @@ echo "Processing downloaded data.."
 # replicon_idx_${SLURM_ARRAY_TASK_ID}.csv is generated as intermediate data
 # for the datasets table with the replicon column replaced with the sequence id.
 rm -f "datasets_${SLURM_ARRAY_TASK_ID}.csv" "summary_${SLURM_ARRAY_TASK_ID}.csv" "replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
+touch "datasets_${SLURM_ARRAY_TASK_ID}.csv" "summary_${SLURM_ARRAY_TASK_ID}.csv" "replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
 #echo "uid,seqid,accession,name,description,type,molecule_type,sequence_version,gi_number,cds_count,gene_count,rna_count,repeat_region_count,length,source" >"summary_${SLURM_ARRAY_TASK_ID}.csv"
 #echo "uid,seqid,path,format,suffix" >"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
 TOSCHEMA='BEGIN{OFS=","}/^[^#]/{print UID, "\""$1"\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic"}' # gawk script to convert summary GFF3 to replicon_idx schema
 cat "${SLURM_ARRAY_TASK_ID}.paths" |
   while IFS=$'\t' read -r uid path; do
-    [[ -d $path ]] || continue # Only process paths actually downloaded by rsync
+    [[ -d "${OUTDIR}"/"${path}" ]] || continue # Only process paths actually downloaded by rsync
 
     if [[ -z $SKIP_RSYNC ]]; then
       # Decompress all files
