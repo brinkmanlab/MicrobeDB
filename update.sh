@@ -51,7 +51,7 @@ export NCBI_API_KEY=${NCBI_API_KEY:-$(gopass show 'brinkman/websites/ncbi.nlm.ni
 echo "Checking dependencies.."
 biopython.convert -v
 xq --version
-gawk --verion
+gawk --version
 echo '""' | jq 'capture(".")'
 rsync --version
 parrallel --version
