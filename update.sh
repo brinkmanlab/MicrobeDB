@@ -79,23 +79,27 @@ if [[ -z "$COUNT" || "$COUNT" -eq 0 ]]; then
   exit 1
 fi
 
+# Handle https://support.computecanada.ca/otrs/customer.pl?Action=CustomerTicketZoom;TicketID=135515
+TASKCOUNT=$((COUNT / STEP))
+if [[ $COUNT -gt $STEP && $((COUNT % STEP)) -ne 0 ]]; then let ++TASKCOUNT; fi
+
 echo -n "Downloading records.."
-for ((i = 0; i <= $COUNT; i += $STEP)); do
-  CHUNK=$(( i % STEP ))
-  STOP=$((i + STEP - 1))
+for ((i = 0; i <= $TASKCOUNT; i++)); do
+  START=$((i * STEP))
+  STOP=$((START + STEP - 1))
   if [[ $STOP -ge $COUNT ]]; then
     STOP=$((COUNT - 1))
   fi
-  efetch -mode json -format docsum -start "$i" -stop "$STOP" <query.xml >"${CHUNK}_raw.json"
+  efetch -mode json -format docsum -start "$START" -stop "$STOP" <query.xml >"${i}_raw.json"
 
   # Verify Entrez API version
-  VERSION="$(tr '\n' ' ' < "${CHUNK}_raw.json" | jq -r '.header.version')"
+  VERSION="$(tr '\n' ' ' < "${i}_raw.json" | jq -r '.header.version')"
   if [ "$VERSION" != '0.3' ]; then
     echo "Unexpected Entrez API version '$VERSION'. Update this script to accept new Entrez response schema."
     exit 1
   fi
 
-  ERROR="$(tr '\n' ' ' < "${CHUNK}_raw.json" | jq -r '.error')"
+  ERROR="$(tr '\n' ' ' < "${i}_raw.json" | jq -r '.error')"
   if [[ $ERROR != 'null' ]]; then
     echo "Failed to fetch subquery from NCBI:"
     echo "$ERROR"
@@ -146,7 +150,7 @@ chmod -R ugo+rX "$WORKDIR"
 if [[ -n $LOCAL ]]; then
   # Run scripts locally rather than sbatch
   echo "Running fetch.sh locally for $COUNT records"
-  for ((i = 0; i <= $COUNT; i += $STEP)); do
+  for ((i = 0; i <= $TASKCOUNT; i++)); do
     SLURM_ARRAY_TASK_ID=$i SKIP_RSYNC=$SKIP_RSYNC "${SRCDIR}/fetch.sh"
   done
   echo "Running finalize.sh locally.."
@@ -155,8 +159,6 @@ else
   # Batch submit fetch.sh
   # Handle https://support.computecanada.ca/otrs/customer.pl?Action=CustomerTicketZoom;TicketID=135515
   echo "Calculating max array size.."
-  TASKCOUNT=$((COUNT / STEP))
-  if [[ $COUNT -gt $STEP && $((COUNT % STEP)) -ne 0 ]]; then let ++TASKCOUNT; fi
   MAXARRAYSIZE=$(scontrol show config | grep MaxArraySize | grep -oP '\d+')
   if [[ $MAXARRAYSIZE -lt $TASKCOUNT ]]; then
     echo "SLURM MaxArraySize is less than the number of records to process: $TASKCOUNT > $MAXARRAYSIZE"
@@ -175,4 +177,5 @@ else
   fi
 fi
 
+echo "WORKDIR: $WORKDIR"
 echo "Done."

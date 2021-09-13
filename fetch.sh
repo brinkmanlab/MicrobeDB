@@ -20,7 +20,7 @@ REPONAME="microbedb.brinkmanlab.ca"
 
 START=$((SLURM_ARRAY_TASK_ID * STEP)) # Handle # https://support.computecanada.ca/otrs/customer.pl?Action=CustomerTicketZoom;TicketID=135515
 # Snap $STOP index to $COUNT if remainder is less than $STEP
-STOP=$((SLURM_ARRAY_TASK_ID + STEP - 1))
+STOP=$((START + STEP - 1))
 if [[ $STOP -ge $COUNT ]]; then
   STOP=$((COUNT - 1))
 fi
