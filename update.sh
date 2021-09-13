@@ -84,7 +84,7 @@ TASKCOUNT=$((COUNT / STEP))
 if [[ $COUNT -gt $STEP && $((COUNT % STEP)) -ne 0 ]]; then let ++TASKCOUNT; fi
 
 echo -n "Downloading records.."
-for ((i = 0; i <= $TASKCOUNT; i++)); do
+for ((i = 0; i < $TASKCOUNT; i++)); do
   START=$((i * STEP))
   STOP=$((START + STEP - 1))
   if [[ $STOP -ge $COUNT ]]; then
@@ -150,7 +150,7 @@ chmod -R ugo+rX "$WORKDIR"
 if [[ -n $LOCAL ]]; then
   # Run scripts locally rather than sbatch
   echo "Running fetch.sh locally for $COUNT records"
-  for ((i = 0; i <= $TASKCOUNT; i++)); do
+  for ((i = 0; i < $TASKCOUNT; i++)); do
     SLURM_ARRAY_TASK_ID=$i SKIP_RSYNC=$SKIP_RSYNC "${SRCDIR}/fetch.sh"
   done
   echo "Running finalize.sh locally.."
