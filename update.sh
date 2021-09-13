@@ -49,14 +49,14 @@ fi
 export NCBI_API_KEY=${NCBI_API_KEY:-$(gopass show 'brinkman/websites/ncbi.nlm.nih.gov/brinkmanlab' api_key)}
 
 echo "Checking dependencies.."
-biopython.convert -v
+echo -n "biopython.convert " && biopython.convert -v
 xq --version
-gawk --version
-echo '""' | jq 'capture(".")'
-rsync --version
-parallel --version
-sqlite3 --version
-find --help | grep '-empty'
+gawk --version | head -1
+jq --version && echo '""' | jq 'capture(".")'
+rsync --version | head -1
+parallel --version | head -1
+echo -n "sqlite3 " && sqlite3 --version
+find --version  | head -1 && find --help | grep '-empty'
 ssh -V
 
 echo "Preparing ${OUTDIR}.."
