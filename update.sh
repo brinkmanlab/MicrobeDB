@@ -54,7 +54,7 @@ xq --version
 gawk --version
 echo '""' | jq 'capture(".")'
 rsync --version
-parrallel --version
+parallel --version
 sqlite3 --version
 find --help | grep '-empty'
 ssh -V
