@@ -6,7 +6,7 @@
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=nolan_w@sfu.ca
 # brinkman-ws+microbedb@sfu.ca
-set -e
+set -e -o pipefail            # Halt on error
 
 # This script is responsible for rebuilding/updating MicrobeDB from scratch
 # It fetches all complete bacterial and archea genomes from NCBI Entrez, including all available meta data.
@@ -47,6 +47,17 @@ if [[ -f "$SRCDIR"/NCBI_API_KEY ]]; then
 fi
 
 export NCBI_API_KEY=${NCBI_API_KEY:-$(gopass show 'brinkman/websites/ncbi.nlm.nih.gov/brinkmanlab' api_key)}
+
+echo "Checking dependencies.."
+biopython.convert -v
+xq --version
+gawk --verion
+echo '""' | jq 'capture(".")'
+rsync --version
+parrallel --version
+sqlite3 --version
+find --help | grep '-empty'
+ssh -V
 
 echo "Preparing ${OUTDIR}.."
 if [[ -z $SKIP_RSYNC ]]; then

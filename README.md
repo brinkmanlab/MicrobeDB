@@ -47,6 +47,7 @@ SELECT 1 FROM subClassOf WHERE n = ancestor_tax_id LIMIT 1;
 - [parallel](https://www.gnu.org/software/parallel/)
 - [gzip](https://www.gnu.org/software/gzip/)
 - [biopython.convert](https://pypi.org/project/biopython.convert/)
+- [rsync](https://rsync.samba.org/)
 
 Ensure the `find` command supports `-empty` by running `find --help | grep '-empty'`.
 The most recent CVMFS commit of the repository must be mounted on all compute nodes.
