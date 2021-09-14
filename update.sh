@@ -166,7 +166,7 @@ else
     exit 1
   fi
   echo "Submitting $COUNT records with fetch.sh to sbatch"
-  job=$(sbatch --array=0-${TASKCOUNT}%50 "${SRCDIR}/fetch.sh")
+  job=$(sbatch --array=0-$((TASKCOUNT - 1))%50 "${SRCDIR}/fetch.sh")
   if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
     echo "Scheduling finalize.sh after job ${BASH_REMATCH[1]} completes"
     sbatch --dependency="afterok:${BASH_REMATCH[1]}" "${SRCDIR}/finalize.sh"
