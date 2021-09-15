@@ -56,6 +56,7 @@ echo "Checking dependencies.."
 echo -n "biopython.convert " && biopython.convert -v
 xq --version
 gawk --version | head -1
+gawk '@load "filefuncs";'
 jq --version && echo '""' | jq 'capture(".")'
 rsync --version | head -1
 parallel --version | head -1

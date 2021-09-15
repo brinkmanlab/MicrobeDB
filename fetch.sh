@@ -120,7 +120,7 @@ rm -f "datasets_${SLURM_ARRAY_TASK_ID}.csv" "summary_${SLURM_ARRAY_TASK_ID}.csv"
 touch "datasets_${SLURM_ARRAY_TASK_ID}.csv" "summary_${SLURM_ARRAY_TASK_ID}.csv" "replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
 #echo "uid,seqid,accession,name,description,type,molecule_type,sequence_version,gi_number,cds_count,gene_count,rna_count,repeat_region_count,length,source" >"summary_${SLURM_ARRAY_TASK_ID}.csv"
 #echo "uid,seqid,path,format,suffix" >"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
-TOSCHEMA='BEGIN{OFS=","}/^[^#]/{print UID, "\""$1"\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic"}' # gawk script to convert summary GFF3 to replicon_idx schema
+TOSCHEMA='@load "filefuncs";BEGIN{OFS=","}/^[^#]/ && (stat("\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", f) >= 0){print UID, "\""$1"\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic"}' # gawk script to convert summary GFF3 to replicon_idx schema, skips record if file doesn't exist
 cat "${SLURM_ARRAY_TASK_ID}.paths" |
   while IFS=$'\t' read -r uid path; do
     [[ -d "${OUTDIR}"/"${path}" ]] || continue # Only process paths actually downloaded by rsync
