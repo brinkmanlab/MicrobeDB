@@ -18,6 +18,10 @@ set -e -o pipefail            # Halt on error
 FTP_GENOMES_PREFIX="genomes/" # NCBI rsync server returns error if you try to target root. This variable is the minimum path to avoid that.
 REPONAME="microbedb.brinkmanlab.ca"
 
+IGNOREEXIT=24
+IGNOREOUT='^(file has vanished: |rsync warning: some files vanished before they could be transferred)'
+
+
 START=$((SLURM_ARRAY_TASK_ID * STEP)) # Handle # https://support.computecanada.ca/otrs/customer.pl?Action=CustomerTicketZoom;TicketID=135515
 # Snap $STOP index to $COUNT if remainder is less than $STEP
 STOP=$((START + STEP - 1))
@@ -88,16 +92,22 @@ if [[ -z $SKIP_RSYNC ]]; then
   for files in *_${SLURM_ARRAY_TASK_ID}.files; do
     if [[ "${files}" =~ ^(.*)_[[:digit:]]+\.files$ ]]; then
       echo "Downloading genomic data from ${BASH_REMATCH[1]}.."
+      set +e
       if [[ -d "${REPOPATH}/${FTP_GENOMES_PREFIX}" ]]; then
         # Sync comparing to existing CVMFS repo
         # TODO --out-format=FORMAT      output updates using the specified FORMAT
         #--log-file=FILE          log what we're doing to the specified FILE
         #--log-file-format=FMT    log updates using the specified FMT
-        rsync -rvcm --no-g --no-p --chmod=ugo+rX --files-from="${files}" --compare-dest="${REPOPATH}/${FTP_GENOMES_PREFIX}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
+        rsync -rvcm --no-g --no-p --chmod=ugo+rX --ignore-missing-args --files-from="${files}" --compare-dest="${REPOPATH}/${FTP_GENOMES_PREFIX}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
       else
         # Download everything without comparing
-        rsync -rvcm --no-g --no-p --chmod=ugo+rX --files-from="${files}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}"
+        rsync -rvcm --no-g --no-p --chmod=ugo+rX --ignore-missing-args --files-from="${files}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
       fi
+      ret=$?
+      if [[ $ret != $IGNOREEXIT || $ret != 0 ]]; then
+        exit $ret
+      fi
+      set -e
     fi
   done
 fi
