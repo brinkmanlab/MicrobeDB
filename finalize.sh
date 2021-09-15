@@ -8,7 +8,7 @@
 # brinkman-ws+microbedb@sfu.ca
 set -e -o pipefail  # Halt on error
 
-# Populate taxonomy table
+echo "Populate taxonomy table.."
 sqlite3 -bail "${DBPATH}" 'SELECT uid, taxid FROM assembly;' | while IFS='|' read uid taxid; do
   sqlite3 -bail "${DBPATH}" <<EOF
 WITH RECURSIVE
@@ -33,18 +33,19 @@ EOF
 done
 
 if [[ -z $NOCOMMIT ]]; then
-  #open cvmfs transaction
+  echo "Opening CVMFS transaction.."
   ssh -i ${KEYPATH} ${STRATUM0} <<REMOTE
 sudo ulimit -n 1048576  # CVMFS holds open file handles on all touched files during a transaction
 sudo cvmfs_server transaction microbedb.brinkmanlab.ca
 REMOTE
 
-  #rsync all files to stratum0
+  echo "rsync all files to stratum0.."
   rsync -av --no-g -e "ssh -i ${KEYPATH}" "${OUTDIR}"/* "${STRATUM0}:${REPOPATH}"
 
-  #execute remaining tasks on stratum0
+  echo "Executing remaining tasks on stratum0.."
   ssh -i "${KEYPATH}" "${STRATUM0}" <<REMOTE
-# delete all files not referenced in the database
+set -e -o pipefail  # Halt on error
+echo "Deleting all files not referenced in the database.."
 if [[ -f ${REPOPATH}/microbedb.sqlite ]]; then
   sqlite3 -bail "${DBPATH}" <<EOF | xargs -I % rm -rfdv "${REPOPATH}/%"
 .mode list
@@ -53,13 +54,13 @@ SELECT od.path FROM old.datasets od LEFT JOIN main.datasets d ON d.path = od.pat
 EOF
 fi
 
-# delete all empty directories
+echo "Deleting all empty directories.."
 find "$REPOPATH" -type d -empty -delete
 
 # TODO verify all database values and paths
 # $COUNT
 
-#commit transaction
+echo "Committing transaction.."
 sudo cvmfs_server publish -m 'Automatic sync with NCBI' microbedb.brinkmanlab.ca
 REMOTE
   echo "Cleaning up download directory.."
