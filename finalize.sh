@@ -40,7 +40,7 @@ sudo cvmfs_server transaction microbedb.brinkmanlab.ca
 REMOTE
 
   echo "rsync all files to stratum0.."
-  rsync -av --no-g -e "ssh -i ${KEYPATH}" "${OUTDIR}"/* "${STRATUM0}:${REPOPATH}"
+  rsync -av --no-g -e "ssh -i ${KEYPATH}" --rsync-path="sudo rsync" "${OUTDIR}"/* "${STRATUM0}:${REPOPATH}"
 
   echo "Executing remaining tasks on stratum0.."
   ssh -i "${KEYPATH}" "${STRATUM0}" <<REMOTE
