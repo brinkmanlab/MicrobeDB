@@ -26,21 +26,25 @@ set -e -o pipefail            # Halt on error
 
 # Create unique working directory
 export WORKDIR=${WORKDIR:-$(mktemp -d ${HOME}/scratch/microbedb_update$(date +'%Y_%m_%d').XXXXXXXXX)}
-export QUERY=${QUERY:-'("bacteria"[Organism] OR "archaea"[Organism]) AND ("complete genome"[Assembly Level] OR "reference genome"[RefSeq Category])'}
-export OUTDIR=${OUTDIR:-${WORKDIR}/microbedb}
-export DBPATH=${DBPATH:-${OUTDIR}/microbedb.sqlite}
-export REPOPATH=${REPOPATH:-'/cvmfs/microbedb.brinkmanlab.ca'}
-export SRCDIR="$(realpath $(dirname "$0"))"
-export STEP=${STEP:-200} # Number of assemblies to process per job
-export KEYPATH=${KEYPATH:-${HOME}/.ssh/cvmfs.pem}
-export STRATUM0=${STRATUM0:-'centos@stratum-0.brinkmanlab.ca'}
-export PATH=${PATH}:${EDIRECT:-$(realpath "$SRCDIR"/edirect)}
-
 cd "$WORKDIR"
 echo "WORKDIR: $WORKDIR"
 
+# Write env script for manual use
+cat <<ENV >job.env
+export QUERY="${QUERY:-("bacteria"[Organism] OR "archaea"[Organism]) AND ("complete genome"[Assembly Level] OR "reference genome"[RefSeq Category])}"
+export OUTDIR="${OUTDIR:-${WORKDIR}/microbedb}"
+export DBPATH="${DBPATH:-${OUTDIR}/microbedb.sqlite}"
+export REPOPATH="${REPOPATH:-/cvmfs/microbedb.brinkmanlab.ca}"
+export SRCDIR="$(realpath $(dirname "$0"))"
+export STEP=${STEP:-200} # Number of assemblies to process per job
+export KEYPATH="${KEYPATH:-${HOME}/.ssh/cvmfs.pem}"
+export STRATUM0="${STRATUM0:-centos@stratum-0.brinkmanlab.ca}"
+export PATH="${PATH}:${EDIRECT:-$(realpath "$SRCDIR"/edirect)}"
+
 module load python/3.9.6
 source "$SRCDIR"/venv/bin/activate
+ENV
+source job.env
 
 if [[ -f "$SRCDIR"/NCBI_API_KEY ]]; then
   NCBI_API_KEY="$(cat "$SRCDIR"/NCBI_API_KEY)"
@@ -82,6 +86,11 @@ fi
 # Handle https://support.computecanada.ca/otrs/customer.pl?Action=CustomerTicketZoom;TicketID=135515
 TASKCOUNT=$((COUNT / STEP))
 if [[ $COUNT -gt $STEP && $((COUNT % STEP)) -ne 0 ]]; then let ++TASKCOUNT; fi
+
+cat <<ENV >>job.env
+export TASKCOUNT=$TASKCOUNT
+export COUNT=$COUNT
+ENV
 
 echo -n "Downloading records.."
 for ((i = 0; i < $TASKCOUNT; i++)); do
