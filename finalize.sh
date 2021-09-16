@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #SBATCH --account=rrg-fiona-ad
 #SBATCH --job-name=microbedb-finalize
+#SBATCH --time=20:00:00
 #SBATCH --export=ALL
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
@@ -47,7 +48,7 @@ REMOTE
 set -e -o pipefail  # Halt on error
 echo "Deleting all files not referenced in the database.."
 if [[ -f ${REPOPATH}/microbedb.sqlite ]]; then
-  sqlite3 -bail "${DBPATH}" <<EOF | xargs -I % rm -rfdv "${REPOPATH}/%"
+  sqlite3 -bail "${REPOPATH}/microbedb.sqlite" <<EOF | xargs -I % rm -rfdv "${REPOPATH}/%"
 .mode list
 ATTACH DATABASE '${REPOPATH}/microbedb.sqlite' AS old;
 SELECT od.path FROM old.datasets od LEFT JOIN main.datasets d ON d.path = od.path;
