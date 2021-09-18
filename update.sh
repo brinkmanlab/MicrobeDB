@@ -33,7 +33,7 @@ export WORKDIR=${WORKDIR:-$(mktemp -d ${HOME}/scratch/microbedb_update$(date +'%
 cd "$WORKDIR"
 echo "WORKDIR: $WORKDIR"
 
-export QUERY="${QUERY:-("bacteria"[Organism] OR "archaea"[Organism]) AND ("complete genome"[Assembly Level] OR "reference genome"[RefSeq Category])}"
+export QUERY="${QUERY:-(\"bacteria\"[Organism] OR \"archaea\"[Organism]) AND (\"complete genome\"[Assembly Level] OR \"reference genome\"[RefSeq Category])}"
 export OUTDIR="${OUTDIR:-${WORKDIR}/microbedb}"
 export DBPATH="${DBPATH:-${OUTDIR}/microbedb.sqlite}"
 export REPOPATH="${REPOPATH:-/cvmfs/microbedb.brinkmanlab.ca}"
