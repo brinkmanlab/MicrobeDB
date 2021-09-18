@@ -31,8 +31,6 @@ export WORKDIR=${WORKDIR:-$(mktemp -d ${HOME}/scratch/microbedb_update$(date +'%
 cd "$WORKDIR"
 echo "WORKDIR: $WORKDIR"
 
-# Write env script for manual use
-cat <<ENV >job.env
 export QUERY="${QUERY:-("bacteria"[Organism] OR "archaea"[Organism]) AND ("complete genome"[Assembly Level] OR "reference genome"[RefSeq Category])}"
 export OUTDIR="${OUTDIR:-${WORKDIR}/microbedb}"
 export DBPATH="${DBPATH:-${OUTDIR}/microbedb.sqlite}"
@@ -45,8 +43,22 @@ export PATH="${PATH}:${EDIRECT:-$(realpath "$SRCDIR"/edirect)}"
 
 module load python/3.9.6
 source "$SRCDIR"/venv/bin/activate
+
+# Write env script for manual use
+cat <<ENV >job.env
+export QUERY="$QUERY"
+export OUTDIR="$OUTDIR"
+export DBPATH="$DBPATH"
+export REPOPATH="$REPOPATH"
+export SRCDIR="$SRCDIR"
+export STEP=$STEP
+export KEYPATH="$KEYPATH"
+export STRATUM0="$STRATUM0"
+export PATH="$PATH"
+
+module load python/3.9.6
+source "$SRCDIR"/venv/bin/activate
 ENV
-source job.env
 
 if [[ -f "$SRCDIR"/NCBI_API_KEY ]]; then
   NCBI_API_KEY="$(cat "$SRCDIR"/NCBI_API_KEY)"
