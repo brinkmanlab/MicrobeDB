@@ -26,6 +26,8 @@ set -e -o pipefail            # Halt on error
 # EDIRECT - Path to Entrez edirect folder
 # NOCOMMIT - Skip copying to stratum0 and committing
 
+export SRCDIR="$(dirname $(realpath "$0"))"
+
 # Create unique working directory
 export WORKDIR=${WORKDIR:-$(mktemp -d ${HOME}/scratch/microbedb_update$(date +'%Y_%m_%d').XXXXXXXXX)}
 cd "$WORKDIR"
@@ -35,7 +37,6 @@ export QUERY="${QUERY:-("bacteria"[Organism] OR "archaea"[Organism]) AND ("compl
 export OUTDIR="${OUTDIR:-${WORKDIR}/microbedb}"
 export DBPATH="${DBPATH:-${OUTDIR}/microbedb.sqlite}"
 export REPOPATH="${REPOPATH:-/cvmfs/microbedb.brinkmanlab.ca}"
-export SRCDIR="$(realpath $(dirname "$0"))"
 export STEP=${STEP:-200} # Number of assemblies to process per job
 export KEYPATH="${KEYPATH:-${HOME}/.ssh/cvmfs.pem}"
 export STRATUM0="${STRATUM0:-centos@stratum-0.brinkmanlab.ca}"
