@@ -38,8 +38,12 @@ done
 if [[ -z $NOCOMMIT ]]; then
   echo "Opening CVMFS transaction.."
   ssh -i ${KEYPATH} ${STRATUM0} <<REMOTE
-sudo ulimit -n 1048576  # CVMFS holds open file handles on all touched files during a transaction
-sudo cvmfs_server transaction microbedb.brinkmanlab.ca
+sudo bash
+ulimit -n 1048576  # CVMFS holds open file handles on all touched files during a transaction
+cvmfs_server transaction microbedb.brinkmanlab.ca
+if [[ -f ${REPOPATH}/microbedb.sqlite ]]; then
+  cp ${REPOPATH}/microbedb.sqlite ${REPOPATH}/microbedb.sqlite.old
+fi
 REMOTE
 
   echo "rsync all files to stratum0.."
@@ -47,24 +51,33 @@ REMOTE
 
   echo "Executing remaining tasks on stratum0.."
   ssh -i "${KEYPATH}" "${STRATUM0}" <<REMOTE
+sudo bash
 set -e -o pipefail  # Halt on error
-echo "Deleting all files not referenced in the database.."
-if [[ -f ${REPOPATH}/microbedb.sqlite ]]; then
+echo "Deleting all files no longer referenced in the database.."
+if [[ -f ${REPOPATH}/microbedb.sqlite.old ]]; then
   sqlite3 -bail "${REPOPATH}/microbedb.sqlite" <<EOF | xargs -I % rm -rfdv "${REPOPATH}/%"
 .mode list
-ATTACH DATABASE '${REPOPATH}/microbedb.sqlite' AS old;
+ATTACH DATABASE '${REPOPATH}/microbedb.sqlite.old' AS old;
 SELECT od.path FROM old.datasets od LEFT JOIN main.datasets d ON d.path = od.path;
 EOF
+  rm -f ${REPOPATH}/microbedb.sqlite.old
 fi
 
 echo "Deleting all empty directories.."
 find "$REPOPATH" -type d -empty -delete
 
-# TODO verify all database values and paths
-# $COUNT
+# query all paths and check existence
+echo "Verifying dataset existence.."
+sqlite3 -bail "${REPOPATH}/microbedb.sqlite" <<EOF | while read path; do [[ -f "${REPOPATH}/$path" ]] || echo "WARNING: Dataset in database doesn't exist"; done
+.mode list
+SELECT path FROM datasets;
+EOF
+# count total assemblies and compare to $COUNT
+DBCOUNT=$(sqlite3 -bail "${REPOPATH}/microbedb.sqlite" 'SELECT count(*) FROM assembly;')
+[[ $COUNT == $DBCOUNT ]] || echo "WARNING: assembly table has more entries than returned by entrez: $DBCOUNT > $COUNT"
 
 echo "Committing transaction.."
-sudo cvmfs_server publish -m 'Automatic sync with NCBI' microbedb.brinkmanlab.ca
+cvmfs_server publish -m 'Automatic sync with NCBI' microbedb.brinkmanlab.ca
 REMOTE
   echo "Cleaning up download directory.."
   rm -rf "$OUTDIR"
