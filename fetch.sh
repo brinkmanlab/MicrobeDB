@@ -106,7 +106,8 @@ if [[ -z $SKIP_RSYNC ]]; then
         rsync -rvcm --no-g --no-p --chmod=ugo+rX --ignore-missing-args --files-from="${files}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
       fi
       ret=$?
-      if [[ $ret != $IGNOREEXIT || $ret != 0 ]]; then
+      if [[ $ret != $IGNOREEXIT && $ret != 0 ]]; then
+        echo "Detected rsync error ($ret)."
         exit $ret
       fi
       set -e
