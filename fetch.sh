@@ -36,6 +36,7 @@ jq '.result | del(.uids) | with_entries(select(.value.rsuid != ""))' "${SLURM_AR
 # Skip if no records to process
 if [[ $(jq 'length' "${SLURM_ARRAY_TASK_ID}.json") == 0 ]]; then
   echo "No records have a refseq uid of $(jq '.result.uids | length') records, skipping."
+  echo $SLURM_ARRAY_TASK_ID >>completed_tasks
   exit 0
 fi
 
@@ -288,3 +289,4 @@ END TRANSACTION;
 EOF
 
 echo "Done."
+echo $SLURM_ARRAY_TASK_ID >>completed_tasks
