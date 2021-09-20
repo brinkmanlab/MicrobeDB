@@ -46,7 +46,7 @@ source "$SRCDIR"/venv/bin/activate
 
 # Write env script for manual use
 cat <<ENV >job.env
-export QUERY="$QUERY"
+export QUERY='$QUERY'
 export OUTDIR="$OUTDIR"
 export DBPATH="$DBPATH"
 export REPOPATH="$REPOPATH"
