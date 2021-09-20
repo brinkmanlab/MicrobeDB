@@ -7,7 +7,6 @@
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=nolan_w@sfu.ca
 #SBATCH --output=%x.out
-#SBATCH --error=%x.err
 # brinkman-ws+microbedb@sfu.ca
 set -e -o pipefail  # Halt on error
 
