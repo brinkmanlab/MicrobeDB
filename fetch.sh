@@ -33,6 +33,12 @@ fi
 # Remove non-refseq records and .uids list
 jq '.result | del(.uids) | with_entries(select(.value.rsuid != ""))' "${SLURM_ARRAY_TASK_ID}_raw.json" >"${SLURM_ARRAY_TASK_ID}.json"
 
+# Skip if no records to process
+if [[ $(jq 'length' "${SLURM_ARRAY_TASK_ID}.json") == 0 ]]; then
+  echo "No records have a refseq uid of $(jq '.result.uids | length') records, skipping."
+  exit 0
+fi
+
 # Populate 'assembly' table
 echo "Converting records to CSV.."
 jq -r -f <(
