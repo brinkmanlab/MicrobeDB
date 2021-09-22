@@ -46,6 +46,7 @@ source "$SRCDIR"/venv/bin/activate
 
 # Write env script for manual use
 cat <<ENV >job.env
+cd "$WORKDIR"
 export QUERY='$QUERY'
 export OUTDIR="$OUTDIR"
 export DBPATH="$DBPATH"
@@ -89,6 +90,7 @@ fi
 # Copy README.md into repository
 cp "${SRCDIR}/README.md" "${OUTDIR}"
 cp "${SRCDIR}/subclassOf.sh" "${OUTDIR}"
+cp "${SRCDIR}/resume.sh" "${WORKDIR}"
 
 echo "Generating query.."
 esearch -db 'assembly' -query "${QUERY}" >query.xml
