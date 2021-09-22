@@ -9,6 +9,7 @@
 #SBATCH --output=%x_%a.out
 # brinkman-ws+microbedb@sfu.ca
 set -e -o pipefail            # Halt on error
+shopt -s nullglob
 
 # For each chunk of the query results:
 # - Download genomic data from NCBI
