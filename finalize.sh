@@ -10,7 +10,7 @@
 # brinkman-ws+microbedb@sfu.ca
 set -e -o pipefail  # Halt on error
 
-echo "Populate taxonomy table.."
+echo "Populating taxonomy table.."
 sqlite3 -bail "${DBPATH}" 'SELECT uid, taxid FROM assembly;' | while IFS='|' read uid taxid; do
   sqlite3 -bail "${DBPATH}" <<EOF
 WITH RECURSIVE

@@ -24,6 +24,8 @@ set -e -o pipefail            # Halt on error
 # STRATUM0 - ssh target including user name to access stratum0
 # EDIRECT - Path to Entrez edirect folder
 # NOCOMMIT - Skip copying to stratum0 and committing
+# SKIP_RSYNC - Skip syncing data
+# KEEP_OUTDIR - Do not delete OUTDIR upon completion
 
 export SRCDIR="$(dirname $(realpath "$0"))"
 
