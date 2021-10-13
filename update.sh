@@ -59,6 +59,9 @@ export STEP=$STEP
 export KEYPATH="$KEYPATH"
 export STRATUM0="$STRATUM0"
 export PATH="$PATH"
+export NOCOMMIT="$NOCOMMIT"
+export SKIP_RSYNC="$SKIP_RSYNC"
+export KEEP_OUTDIR="$KEEP_OUTDIR"
 export CLEAN="$CLEAN"
 
 module load python/3.9.6

@@ -103,7 +103,7 @@ echo "Committing transaction.."
 cvmfs_server publish -m 'Automatic sync with NCBI' microbedb.brinkmanlab.ca
 REMOTE
   echo "Cleaning up download directory.."
-  rm -rf "$OUTDIR"
+  [[ -z $KEEP_OUTDIR ]] || rm -rf "$OUTDIR"
 fi
 
 echo "Done."
