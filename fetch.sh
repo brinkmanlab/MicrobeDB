@@ -209,7 +209,7 @@ for (f in feats) {
   print UID, $1, "\"" annotations["accessions"] "\"", annotations["Name"], "\"" annotations["desc"] "\"", "source_plasmid" in annotations ? "plasmid" : "chromosome", "\"" annotations["source_mol_type"] "\"", annotations["sequence_version"], annotations["gi"], features["CDS"], features["gene"], rna_count, features["repeat_region"], $5, "\"" annotations["source"] "\""
 }
 EOF
-        ) | tee >(gawk -v UID="$uid" -v PREFIX="${prefix}" -v PATH="${path}" -v EXT='gbk' PARENT="${f#"$OUTDIR/"}" 'BEGIN{FS=",";OFS=","}{print $1, "\"" $2 "\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic", PARENT}' >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv") >>"summary_${SLURM_ARRAY_TASK_ID}.csv"
+        ) | tee >(gawk -v UID="$uid" -v PREFIX="${prefix}" -v PATH="${path}" -v EXT='gbk' -v PARENT="${f#"$OUTDIR/"}" 'BEGIN{FS=",";OFS=","}{print $1, "\"" $2 "\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic", PARENT}' >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv") >>"summary_${SLURM_ARRAY_TASK_ID}.csv"
 
       echo "Generating replicon fna of ${path}.."
       biopython.convert -si "${f}" genbank "${f%.*}.fna" fasta |
