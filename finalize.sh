@@ -34,13 +34,37 @@ INSERT OR REPLACE INTO taxonomy ("taxon_id","superkingdom","phylum","tax_class",
 EOF
 done
 
+if [[ -z $CLEAN && -f ${REPOPATH}/microbedb.sqlite ]]; then
+  echo "Copying forward any summaries and datasets that were not synced.."
+  cat checksums_*.csv > checksums.csv
+# TODO needs a multi-way inner join between checksums, summaries, and datasets across old, inserted or ignored into new
+#  sqlite3 -bail "${DBPATH}" <<EOF
+#.read ${SRCDIR}/temp_tables.sql
+#.import checksums.csv checksums
+#PRAGMA foreign_keys = ON;
+#ATTACH DATABASE '${REPOPATH}/microbedb.sqlite' AS old;
+#BEGIN TRANSACTION;
+## copy summaries that weren't synced
+#INSERT OR IGNORE INTO main.summaries
+#SELECT os.* FROM old.summaries AS os
+#INNER JOIN checksums AS c ON os.path = c.path;
+#
+## copy datasets that weren't synced
+#INSERT OR IGNORE INTO main.datasets
+#SELECT od.* FROM old.datasets od
+#INNER JOIN checksums AS c ON od.path = c.path;
+#
+#END TRANSACTION;
+#EOF
+fi
+
 if [[ -z $NOCOMMIT ]]; then
   echo "Opening CVMFS transaction.."
   ssh -i ${KEYPATH} ${STRATUM0} <<REMOTE
 sudo bash
 ulimit -n 1048576  # CVMFS holds open file handles on all touched files during a transaction
 cvmfs_server transaction microbedb.brinkmanlab.ca
-if [[ -f ${REPOPATH}/microbedb.sqlite ]]; then
+if [[ -z "$CLEAN" && -f ${REPOPATH}/microbedb.sqlite ]]; then
   cp ${REPOPATH}/microbedb.sqlite ${REPOPATH}/microbedb.sqlite.old
 fi
 REMOTE
@@ -67,13 +91,13 @@ find "$REPOPATH" -type d -empty -delete
 
 # query all paths and check existence
 echo "Verifying dataset existence.."
-sqlite3 -bail "${REPOPATH}/microbedb.sqlite" <<EOF | while read path; do [[ -f "${REPOPATH}/$path" ]] || echo "WARNING: Dataset in database doesn't exist"; done
+sqlite3 -bail "${REPOPATH}/microbedb.sqlite" <<EOF | while read path; do [[ -f "${REPOPATH}/\$path" ]] || echo "WARNING: Dataset in database doesn't exist"; done
 .mode list
 SELECT path FROM datasets;
 EOF
 # count total assemblies and compare to $COUNT
 DBCOUNT=$(sqlite3 -bail "${REPOPATH}/microbedb.sqlite" 'SELECT count(*) FROM assembly;')
-[[ $COUNT == $DBCOUNT ]] || echo "WARNING: assembly table has more entries than returned by entrez: $DBCOUNT > $COUNT"
+[[ $COUNT == \$DBCOUNT ]] || echo "WARNING: assembly table has more entries than returned by Entrez: \$DBCOUNT > $COUNT"
 
 echo "Committing transaction.."
 cvmfs_server publish -m 'Automatic sync with NCBI' microbedb.brinkmanlab.ca

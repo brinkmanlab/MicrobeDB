@@ -24,5 +24,13 @@ CREATE TEMPORARY TABLE replicon_idx
     "seqid"  TEXT NOT NULL, -- Sequence ID
     "path"   TEXT,          -- Path to dataset relative to the database
     "format" TEXT,          -- Format of dataset
-    "suffix" TEXT           -- Filename suffix excluding extension, describes file content
+    "suffix" TEXT,          -- Filename suffix excluding extension, describes file content
+    "parent" TEXT           -- Path to derivative dataset
 );
+
+CREATE TEMPORARY TABLE checksums
+(
+    "checksum"  TEXT NOT NULL,  -- MD5 Checksum of dataset (or compressed dataset) as reported by NCBI
+    "path"      TEXT NOT NULL,  -- Path to dataset relative to database
+    "ncbi_path" TEXT NOT NULL   -- Path to dataset on NCBI
+)

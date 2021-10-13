@@ -69,7 +69,7 @@ CREATE TABLE summaries
 (
     -- Column list order must match order stated in fetch.sh line #170
     "id"                  INTEGER PRIMARY KEY,                                         -- Alias of rowid
-    "uid"                 TEXT REFERENCES assembly ("uid") ON UPDATE CASCADE NOT NULL, -- Foreign key to assembly table
+    "uid"                 TEXT REFERENCES assembly ("uid") ON DELETE CASCADE NOT NULL, -- Foreign key to assembly table
     "seqid"               TEXT                                               NOT NULL, -- Replicon Id
     "accession"           TEXT,                                                        -- Replicon accession
     "name"                TEXT,                                                        -- Replicon name
@@ -90,11 +90,13 @@ CREATE TABLE summaries
 CREATE TABLE datasets
     --- Listing of all files
 (
-    "uid"      TEXT REFERENCES assembly ("uid") ON UPDATE CASCADE NOT NULL,        -- Foreign key to assembly table
-    "replicon" INTEGER REFERENCES summaries ("id") ON UPDATE CASCADE,              -- Foreign key to summary table, NULL when dataset represents all replicons
+    "uid"      TEXT REFERENCES assembly ("uid") ON DELETE CASCADE NOT NULL,        -- Foreign key to assembly table
+    "replicon" INTEGER REFERENCES summaries ("id") ON DELETE CASCADE,              -- Foreign key to summary table, NULL when dataset represents all replicons
     "path"     TEXT                                               NOT NULL UNIQUE, -- Path to dataset relative to the database
     "format"   TEXT                                               NOT NULL,        -- Format of dataset (file extension)
-    "suffix"   TEXT                                               NOT NULL         -- Filename suffix excluding extension, describes file content
+    "suffix"   TEXT                                               NOT NULL,        -- Filename suffix excluding extension, describes file content
+    "checksum" TEXT,                                                               -- MD5 Checksum of dataset (or compressed dataset) as reported by NCBI
+    "parent"   TEXT REFERENCES datasets ("path") ON DELETE CASCADE                 -- Reference to derivative dataset
 );
 
 CREATE TABLE taxonomy_names
@@ -132,11 +134,11 @@ CREATE TABLE taxonomy_nodes
     parent_tax_id                 INTEGER REFERNCES taxonomy_nodes,                             -- parent node id in GenBank taxonomy database
     rank                          TEXT,                                                         -- rank of this node (superkingdom, kingdom, ...)
     embl_code                     TEXT,                                                         -- locus-name prefix; not unique
-    division_id                   INTEGER REFERENCES taxonomy_divisions (id) ON UPDATE CASCADE, -- see taxonomy_divisions table
+    division_id                   INTEGER REFERENCES taxonomy_divisions (id) ON DELETE CASCADE, -- see taxonomy_divisions table
     inherited_div_flag            BOOLEAN,                                                      -- 1 if node inherits division from parent
-    genetic_code_id               INTEGER REFERENCES taxonomy_gencode (id) ON UPDATE CASCADE,   -- see taxonomy_gencode table
+    genetic_code_id               INTEGER REFERENCES taxonomy_gencode (id) ON DELETE CASCADE,   -- see taxonomy_gencode table
     inherited_GC_flag             BOOLEAN,                                                      -- 1 if node inherits genetic code from parent
-    mitochondrial_genetic_code_id INTEGER REFERENCES taxonomy_gencode (id) ON UPDATE CASCADE,   -- see taxonomy_gencode table
+    mitochondrial_genetic_code_id INTEGER REFERENCES taxonomy_gencode (id) ON DELETE CASCADE,   -- see taxonomy_gencode table
     inherited_MGC_flag            BOOLEAN,                                                      -- 1 if node inherits mitochondrial gencode from parent
     GenBank_hidden_flag           BOOLEAN,                                                      -- 1 if name is suppressed in GenBank entry lineage
     hidden_subtree_root_flag      BOOLEAN,                                                      -- 1 if this subtree has no sequence data yet
@@ -265,7 +267,7 @@ CREATE VIEW genomeproject_checksum
     --- Depreciated. This view is included for backwards compatibility only.
 AS
 SELECT replace(datasets.path, rtrim(datasets.path, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.[]()-_'), '') AS filename,
-       ''                                                                                                                        AS checksum,
+       checksum                                                                                                                  AS checksum,
        uid                                                                                                                       AS gpv_id
 FROM datasets;
 

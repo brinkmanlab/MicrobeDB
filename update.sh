@@ -26,6 +26,7 @@ set -e -o pipefail            # Halt on error
 # NOCOMMIT - Skip copying to stratum0 and committing
 # SKIP_RSYNC - Skip syncing data
 # KEEP_OUTDIR - Do not delete OUTDIR upon completion
+# CLEAN - If non-empty, resync entire database without copying forward from REPOPATH
 
 export SRCDIR="$(dirname $(realpath "$0"))"
 
@@ -58,6 +59,7 @@ export STEP=$STEP
 export KEYPATH="$KEYPATH"
 export STRATUM0="$STRATUM0"
 export PATH="$PATH"
+export CLEAN="$CLEAN"
 
 module load python/3.9.6
 source "$SRCDIR"/venv/bin/activate

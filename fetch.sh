@@ -67,7 +67,7 @@ EOF
 # Download data
 echo "Preparing download lists.."
 # verify that node has most recent commit of CVMFS repo mounted
-if [[ -d $REPOPATH && $(cvmfs_config showconfig "$REPONAME" | grep -P 'CVMFS_REPOSITORY_TAG=$|CVMFS_REPOSITORY_DATE=$|CVMFS_ROOT_HASH=$' | wc -l) == 3 ]]; then
+if [[ -z $CLEAN && -d $REPOPATH && $(cvmfs_config showconfig "$REPONAME" | grep -P 'CVMFS_REPOSITORY_TAG=$|CVMFS_REPOSITORY_DATE=$|CVMFS_ROOT_HASH=$' | wc -l) == 3 ]]; then
   echo "ERROR: $REPONAME targets commit other than trunk. The diff should be against the most recent commit."
   exit 1
 fi
@@ -75,7 +75,7 @@ fi
 # Generate file lists per ftp host (there should only be one but if that ever changes..)
 # Output one file path per line to {hostname}_${SLURM_ARRAY_TASK_ID}.files
 # ${SLURM_ARRAY_TASK_ID}.paths stores the Entrez uid to path mapping
-rm -f *_${SLURM_ARRAY_TASK_ID}.files "${SLURM_ARRAY_TASK_ID}.paths"
+rm -f *_${SLURM_ARRAY_TASK_ID}.files *_${SLURM_ARRAY_TASK_ID}.md5 "${SLURM_ARRAY_TASK_ID}.paths" "checksums_${SLURM_ARRAY_TASK_ID}.csv"
 jq -r -f <(
   cat <<EOF
 to_entries | .[].value | {uid: .uid} + (
@@ -91,26 +91,49 @@ EOF
   while IFS=$'\t' read -r id host path; do
     # For each assembly, prepare directory and add to rsync --files-from
     mkdir -p "${OUTDIR}/${path}"
+    echo "${path}/md5checksums.txt" >>"${host}_${SLURM_ARRAY_TASK_ID}.md5" # Append to list of md5 checksum files to rsync
     echo "${path}" >>"${host}_${SLURM_ARRAY_TASK_ID}.files"              # Append to list of files to rsync
     printf "%s\t%s\n" "${id}" "${path}" >>"${SLURM_ARRAY_TASK_ID}.paths" # Append to tsv of uid to path mappings
   done
 
 # Rsync datasets per ftp host
 # Passes the previously generated {hostname}_${SLURM_ARRAY_TASK_ID}.files to rsyncs '--files-from' argument
+TOSCHEMA='BEGIN{FS="  ";OFS=","}{file=substr($2,2); sub(/\.gz$/, "", file); print "\""$1"\"", "\"" PATH file "\"", "\"" PATH substr($2,2) "\""}'
 if [[ -z $SKIP_RSYNC ]]; then
   for files in *_${SLURM_ARRAY_TASK_ID}.files; do
     if [[ "${files}" =~ ^(.*)_[[:digit:]]+\.files$ ]]; then
-      echo "Downloading genomic data from ${BASH_REMATCH[1]}.."
+      host="${BASH_REMATCH[1]}"
+      echo "Downloading genomic data from ${host}.."
       set +e
-      if [[ -d $REPOPATH ]]; then
+      if [[ -d $REPOPATH && -z $CLEAN ]]; then
         # Sync comparing to existing CVMFS repo
-        # TODO --out-format=FORMAT      output updates using the specified FORMAT
-        #--log-file=FILE          log what we're doing to the specified FILE
-        #--log-file-format=FMT    log updates using the specified FMT
-        rsync -rvcm --no-g --no-p --chmod=ugo+rX --ignore-missing-args --files-from="${files}" --compare-dest="${REPOPATH}/${FTP_GENOMES_PREFIX}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
+        if [[ -d "${host}_${SLURM_ARRAY_TASK_ID}.md5" && -f "${REPOPATH}/microbedb.sqlite" ]]; then
+          # Use checksums to only download files that have changed and
+          rsync -rvcm --no-g --no-p --chmod=ugo+rX --ignore-missing-args --files-from="${host}_${SLURM_ARRAY_TASK_ID}.md5" --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
+          ret=$?
+          if [[ $ret != $IGNOREEXIT && $ret != 0 ]]; then
+            echo "Detected rsync error ($ret) during md5checksums sync."
+            exit $ret
+          fi
+          # Compare checksums and rewrite $files content to explicitly specify individual files
+          cat "${host}_${SLURM_ARRAY_TASK_ID}.md5" | while read -r path; do
+            gawk -v PATH=$(dirname $path) "$TOSCHEMA" "${OUTDIR}/${path}" >>"checksums_${SLURM_ARRAY_TASK_ID}.csv"
+          done
+          sqlite3 -bail -readonly "${REPOPATH}/microbedb.sqlite" <<EOF >"$files"
+.read ${SRCDIR}/temp_tables.sql
+.mode csv
+.import checksums_${SLURM_ARRAY_TASK_ID}.csv checksums
+.mode list
+SELECT c.ncbi_path FROM datasets d LEFT JOIN checksums c ON d.path = c.path WHERE d.path IS NULL OR d.checksum != c.checksum;
+EOF
+        fi
+        rsync -rvcm --no-g --no-p --chmod=ugo+rX --ignore-missing-args --files-from="${files}" --inplace --compare-dest="${REPOPATH}" "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
       else
         # Download everything without comparing
-        rsync -rvcm --no-g --no-p --chmod=ugo+rX --ignore-missing-args --files-from="${files}" "rsync://${BASH_REMATCH[1]}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
+        rsync -rvcm --no-g --no-p --chmod=ugo+rX --ignore-missing-args --files-from="${files}" --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
+        cat "${host}_${SLURM_ARRAY_TASK_ID}.md5" | while read -r path; do
+          gawk -v PATH=$(dirname $path) "$TOSCHEMA" "${OUTDIR}/${path}" >>"checksums_${SLURM_ARRAY_TASK_ID}.csv"
+        done
       fi
       ret=$?
       if [[ $ret != $IGNOREEXIT && $ret != 0 ]]; then
@@ -127,10 +150,10 @@ echo "Processing downloaded data.."
 # replicon_idx_${SLURM_ARRAY_TASK_ID}.csv is generated as intermediate data
 # for the datasets table with the replicon column replaced with the sequence id.
 rm -f "datasets_${SLURM_ARRAY_TASK_ID}.csv" "summary_${SLURM_ARRAY_TASK_ID}.csv" "replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
-touch "datasets_${SLURM_ARRAY_TASK_ID}.csv" "summary_${SLURM_ARRAY_TASK_ID}.csv" "replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
+touch "datasets_${SLURM_ARRAY_TASK_ID}.csv" "summary_${SLURM_ARRAY_TASK_ID}.csv" "replicon_idx_${SLURM_ARRAY_TASK_ID}.csv" "checksums_${SLURM_ARRAY_TASK_ID}.csv"
 #echo "uid,seqid,accession,name,description,type,molecule_type,sequence_version,gi_number,cds_count,gene_count,rna_count,repeat_region_count,length,source" >"summary_${SLURM_ARRAY_TASK_ID}.csv"
 #echo "uid,seqid,path,format,suffix" >"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
-TOSCHEMA='@load "filefuncs";BEGIN{OFS=","}/^[^#]/ && (stat("\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", f) >= 0){print UID, "\""$1"\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic"}' # gawk script to convert summary GFF3 to replicon_idx schema, skips record if file doesn't exist
+TOSCHEMA='@load "filefuncs";BEGIN{OFS=","}/^[^#]/ && (stat("\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", f) >= 0){print UID, "\""$1"\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic", PARENT}' # gawk script to convert summary GFF3 to replicon_idx schema, skips record if file doesn't exist
 cat "${SLURM_ARRAY_TASK_ID}.paths" |
   while IFS=$'\t' read -r uid path; do
     [[ -d "${OUTDIR}"/"${path}" ]] || continue # Only process paths actually downloaded by rsync
@@ -144,7 +167,7 @@ cat "${SLURM_ARRAY_TASK_ID}.paths" |
     # Generate datasets table
     for f in ${OUTDIR}/${path}/*; do
       if [[ "${f##*/}" =~ ^[^_]+_[^_]+_[^_]+_(.+)\.(.+)$ ]]; then
-        echo "${uid},,\"${path}/${f##*/}\",\"${BASH_REMATCH[2]}\",\"${BASH_REMATCH[1]}\"" >>"datasets_${SLURM_ARRAY_TASK_ID}.csv"
+        echo "${uid},,\"${path}/${f##*/}\",\"${BASH_REMATCH[2]}\",\"${BASH_REMATCH[1]}\",," >>"datasets_${SLURM_ARRAY_TASK_ID}.csv"
       fi
     done
 
@@ -186,11 +209,11 @@ for (f in feats) {
   print UID, $1, "\"" annotations["accessions"] "\"", annotations["Name"], "\"" annotations["desc"] "\"", "source_plasmid" in annotations ? "plasmid" : "chromosome", "\"" annotations["source_mol_type"] "\"", annotations["sequence_version"], annotations["gi"], features["CDS"], features["gene"], rna_count, features["repeat_region"], $5, "\"" annotations["source"] "\""
 }
 EOF
-        ) | tee >(gawk -v UID="$uid" -v PREFIX="${prefix}" -v PATH="${path}" -v EXT='gbk' 'BEGIN{FS=",";OFS=","}{print $1, "\"" $2 "\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic"}' >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv") >>"summary_${SLURM_ARRAY_TASK_ID}.csv"
+        ) | tee >(gawk -v UID="$uid" -v PREFIX="${prefix}" -v PATH="${path}" -v EXT='gbk' PARENT="${f#"$OUTDIR/"}" 'BEGIN{FS=",";OFS=","}{print $1, "\"" $2 "\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic", PARENT}' >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv") >>"summary_${SLURM_ARRAY_TASK_ID}.csv"
 
       echo "Generating replicon fna of ${path}.."
       biopython.convert -si "${f}" genbank "${f%.*}.fna" fasta |
-        gawk -v UID="$uid" -v PREFIX="${prefix}" -v PATH="${path}" -v EXT='fna' "$TOSCHEMA" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
+        gawk -v UID="$uid" -v PREFIX="${prefix}" -v PATH="${path}" -v EXT='fna' -v PARENT="${f#"$OUTDIR/"}" "$TOSCHEMA" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
     done
 
     echo "Generating replicon ffn, faa, ptt of ${path}.."
@@ -216,7 +239,7 @@ seq: extract(seq, @),
 description: desc})
 EOF
       )" "${f}" genbank "${f%.*}.ffn" fasta
-      echo "${uid},${seqid},\"${path}/${prefix}.ffn\",ffn,\"${suffix}\"" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
+      echo "${uid},${seqid},\"${path}/${prefix}.ffn\",ffn,\"${suffix}\",\"${f#"$OUTDIR/"}\"" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
 
       biopython.convert -q "$(
         cat <<'EOF'
@@ -231,7 +254,7 @@ seq: qualifiers.translation[0],
 description: (organism && join('', [qualifiers.product[0], ' [', organism, ']']) || qualifiers.product[0])})
 EOF
       )" "${f}" genbank "${f%.*}.faa" fasta
-      echo "${uid},${seqid},\"${path}/${prefix}.faa\",faa,\"${suffix}\"" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
+      echo "${uid},${seqid},\"${path}/${prefix}.faa\",faa,\"${suffix}\",\"${f#"$OUTDIR/"}\"" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
 
       # Generate PTT files
       # biopython does not support ptt files so we are going to bodge something together using a complex JMESPath
@@ -263,7 +286,7 @@ EOF
 ] | []
 EOF
       )" "${f}" genbank "${f%.*}.ptt" text
-      echo "${uid},${seqid},\"${path}/${prefix}.ptt\",ptt,\"${suffix}\"" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
+      echo "${uid},${seqid},\"${path}/${prefix}.ptt\",ptt,\"${suffix}\",\"${f#"$OUTDIR/"}\"" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
     done
   done
 
@@ -279,13 +302,16 @@ BEGIN TRANSACTION;
 .import summary_${SLURM_ARRAY_TASK_ID}.csv summary_noid
 INSERT INTO summaries SELECT NULL, * FROM summary_noid;
 
+.import checksums_${SLURM_ARRAY_TASK_ID}.csv checksums
 .import datasets_${SLURM_ARRAY_TASK_ID}.csv replicon_idx
-INSERT INTO datasets SELECT uid, NULL, path, format, suffix FROM replicon_idx;
+INSERT INTO datasets SELECT r.uid, NULL, r.path, r.format, r.suffix, c.checksum, r.parent
+FROM replicon_idx r LEFT JOIN checksums c ON r.path == c.path;
 DELETE FROM replicon_idx;
 
 .import replicon_idx_${SLURM_ARRAY_TASK_ID}.csv replicon_idx
-INSERT INTO datasets SELECT r.uid as uid, s.id as replicon, r.path as path, r.format as format, r.suffix as suffix
+INSERT INTO datasets SELECT r.uid as uid, s.id as replicon, r.path as path, r.format as format, r.suffix as suffix, NULL, r.parent
 FROM replicon_idx r JOIN summaries s ON s.uid == r.uid AND s.seqid == r.seqid;
+
 END TRANSACTION;
 EOF
 
