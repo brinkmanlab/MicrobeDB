@@ -6,36 +6,36 @@ source $(dirname $(realpath "$0"))/job.env
 sort -n completed_tasks |
 (
   read next_complete
-  if [[ $? != 0 ]]; then
+  if (( $? != 0 )); then
     indexs="0-$(($TASKCOUNT - 1))"
   else
     indexs=""
     start=0
     for ((i = 0; i < $TASKCOUNT; i++)); do
-      if [[ $i == $next_complete ]]; then
+      if (( $i == $next_complete )); then
         end=$((i - 1))
-        if [[ $start == $end ]]; then
+        if (( $start == $end )); then
           indexs="$indexs,$start"
-        elif [[ $start < $end ]]; then
+        elif (( $start < $end )); then
           indexs="$indexs,$start-$end"
         fi
         start=$((i + 1))
         read next_complete
-        if [[ $? != 0 ]]; then
+        if (( $? != 0 )); then
           i=$TASKCOUNT
           break
         fi
       fi
     done
-    echo $i $TASKCOUNT
     end=$((i - 1))
-    if [[ $start == $end ]]; then
+    if (( $start == $end )); then
       indexs="$indexs,$start"
-    elif [[ $start < $end ]]; then
+    elif (( $start < $end )); then
       indexs="$indexs,$start-$end"
     fi
   fi
   indexs="${indexs:1}"
+  echo "$indexs"
   job=$(sbatch --array="${indexs}%50" "${SRCDIR}/fetch.sh")
   if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
     echo "Scheduling finalize.sh after job ${BASH_REMATCH[1]} completes"
