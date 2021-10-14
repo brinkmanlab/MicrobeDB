@@ -109,7 +109,7 @@ if [[ -z $SKIP_RSYNC ]]; then
         # Sync comparing to existing CVMFS repo
         if [[ -d "${host}_${SLURM_ARRAY_TASK_ID}.md5" && -f "${REPOPATH}/microbedb.sqlite" ]]; then
           # Use checksums to only download files that have changed and
-          rsync -rvcm --no-g --no-p --chmod=ugo+rX --ignore-missing-args --files-from="${host}_${SLURM_ARRAY_TASK_ID}.md5" --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
+          rsync -rvcm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="${host}_${SLURM_ARRAY_TASK_ID}.md5" --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
           ret=$?
           if [[ $ret != $IGNOREEXIT && $ret != 0 ]]; then
             echo "Detected rsync error ($ret) during md5checksums sync."
@@ -127,10 +127,10 @@ if [[ -z $SKIP_RSYNC ]]; then
 SELECT c.ncbi_path FROM datasets d LEFT JOIN checksums c ON d.path = c.path WHERE d.path IS NULL OR d.checksum != c.checksum;
 EOF
         fi
-        rsync -rvcm --no-g --no-p --chmod=ugo+rX --ignore-missing-args --files-from="${files}" --inplace --compare-dest="${REPOPATH}" "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
+        rsync -rvcm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="${files}" --inplace --compare-dest="${REPOPATH}" "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
       else
         # Download everything without comparing
-        rsync -rvcm --no-g --no-p --chmod=ugo+rX --ignore-missing-args --files-from="${files}" --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
+        rsync -rvcm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="${files}" --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
         cat "${host}_${SLURM_ARRAY_TASK_ID}.md5" | while read -r path; do
           gawk -v PATH=$(dirname $path) "$TOSCHEMA" "${OUTDIR}/${path}" >>"checksums_${SLURM_ARRAY_TASK_ID}.csv"
         done
