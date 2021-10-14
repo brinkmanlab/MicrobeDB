@@ -169,7 +169,7 @@ cat "${SLURM_ARRAY_TASK_ID}.paths" |
       if [[ "${f##*/}" =~ ^[^_]+_[^_]+_[^_]+_(.+)\.(.+)$ ]]; then
         format="${BASH_REMATCH[2]}"
         suffix="${BASH_REMATCH[1]}"
-        if [[ ! ( $format =~ ^\d+\..*$ ) ]]; then
+        if [[ ! ( $format =~ ^\d+\..*$ ) ]]; then  # do not capture generated files if this script is re-ran. Matches on replicon number (.0.fna) extensions
           echo "${uid},,\"${path}/${f##*/}\",\"${format}\",\"${suffix}\"," >>"datasets_${SLURM_ARRAY_TASK_ID}.csv"
         fi
       fi
