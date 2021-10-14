@@ -57,7 +57,7 @@ if [[ -z $CLEAN && -f ${REPOPATH}/microbedb.sqlite ]]; then
 #END TRANSACTION;
 #EOF
 fi
-
+# TODO vaccuum database
 if [[ -z $NOCOMMIT ]]; then
   echo "Opening CVMFS transaction.."
   ssh -i ${KEYPATH} ${STRATUM0} <<REMOTE

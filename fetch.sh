@@ -293,10 +293,11 @@ EOF
 echo "Populating assembly, summaries and datasets tables.."
 sqlite3 -bail "${DBPATH}" <<EOF
 -- PRAGMA foreign_keys = ON;
+PRAGMA busy_timeout = 10800000;
 .read ${SRCDIR}/temp_tables.sql
 .mode csv
 
-BEGIN TRANSACTION;
+BEGIN IMMEDIATE TRANSACTION;
 .import assembly_${SLURM_ARRAY_TASK_ID}.csv assembly
 
 .import summary_${SLURM_ARRAY_TASK_ID}.csv summary_noid
