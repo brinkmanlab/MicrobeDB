@@ -152,7 +152,7 @@ echo "Processing downloaded data.."
 rm -f "datasets_${SLURM_ARRAY_TASK_ID}.csv" "summary_${SLURM_ARRAY_TASK_ID}.csv" "replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
 touch "datasets_${SLURM_ARRAY_TASK_ID}.csv" "summary_${SLURM_ARRAY_TASK_ID}.csv" "replicon_idx_${SLURM_ARRAY_TASK_ID}.csv" "checksums_${SLURM_ARRAY_TASK_ID}.csv"
 #echo "uid,seqid,accession,name,description,type,molecule_type,sequence_version,gi_number,cds_count,gene_count,rna_count,repeat_region_count,length,source" >"summary_${SLURM_ARRAY_TASK_ID}.csv"
-#echo "uid,seqid,path,format,suffix" >"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
+#echo "uid,seqid,path,format,suffix,parent" >"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
 TOSCHEMA='@load "filefuncs";BEGIN{OFS=","}/^[^#]/ && (stat("\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", f) >= 0){print UID, "\""$1"\"", "\"" PATH "/" PREFIX "." (NR-1) "." EXT "\"", EXT, "genomic", PARENT}' # gawk script to convert summary GFF3 to replicon_idx schema, skips record if file doesn't exist
 cat "${SLURM_ARRAY_TASK_ID}.paths" |
   while IFS=$'\t' read -r uid path; do
@@ -167,7 +167,11 @@ cat "${SLURM_ARRAY_TASK_ID}.paths" |
     # Generate datasets table
     for f in ${OUTDIR}/${path}/*; do
       if [[ "${f##*/}" =~ ^[^_]+_[^_]+_[^_]+_(.+)\.(.+)$ ]]; then
-        echo "${uid},,\"${path}/${f##*/}\",\"${BASH_REMATCH[2]}\",\"${BASH_REMATCH[1]}\",," >>"datasets_${SLURM_ARRAY_TASK_ID}.csv"
+        format="${BASH_REMATCH[2]}"
+        suffix="${BASH_REMATCH[1]}"
+        if [[ ! ( $format =~ ^\d+\..*$ ) ]]; then
+          echo "${uid},,\"${path}/${f##*/}\",\"${format}\",\"${suffix}\"," >>"datasets_${SLURM_ARRAY_TASK_ID}.csv"
+        fi
       fi
     done
 
