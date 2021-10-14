@@ -161,7 +161,7 @@ cat "${SLURM_ARRAY_TASK_ID}.paths" |
     if [[ -z $SKIP_RSYNC ]]; then
       # Decompress all files
       echo "Decompressing ${path}.."
-      parallel gzip -d ::: "${OUTDIR}"/"${path}"/*.gz
+      parallel gzip -f -d ::: "${OUTDIR}"/"${path}"/*.gz
     fi
 
     # Generate datasets table
