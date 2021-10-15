@@ -3,6 +3,19 @@
 # update.sh must have completed successfully before this can run
 source $(dirname $(realpath "$0"))/job.env
 
+if [[ ! -f completed_tasks ]]; then
+  job=$(sbatch --array="0-$(($TASKCOUNT - 1))%50" "${SRCDIR}/fetch.sh")
+  if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
+    echo "Scheduling finalize.sh after job ${BASH_REMATCH[1]} completes"
+    sbatch --dependency="afterok:${BASH_REMATCH[1]}" "${SRCDIR}/finalize.sh"
+    echo "Run 'squeue -rj ${BASH_REMATCH[1]}' to monitor progress"
+  else
+    echo "finalize.sh failed to schedule, sbatch failed to return job id for fetch.sh"
+    exit 1
+  fi
+  exit
+fi
+
 sort -n completed_tasks |
 (
   read next_complete
