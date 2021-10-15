@@ -43,8 +43,8 @@ jq '.result | del(.uids) | with_entries(select(.value.rsuid != ""))' "${WORKDIR}
 
 # Skip if no records to process
 if [[ $(jq 'length' "${WORKDIR}/${SLURM_ARRAY_TASK_ID}.json") == 0 ]]; then
-  echo "No records have a refseq uid of $(jq '.result.uids | length' "${WORKDIR}/${SLURM_ARRAY_TASK_ID}.json") records, skipping."
-  echo $SLURM_ARRAY_TASK_ID >>completed_tasks
+  echo "No records have a refseq uid of $(jq '.result.uids | length' "${SLURM_ARRAY_TASK_ID}.json") records, skipping."
+  echo $SLURM_ARRAY_TASK_ID >> "${WORKDIR}/completed_tasks"
   exit 0
 fi
 
@@ -69,7 +69,7 @@ jq -r -f <(
     .ftppath_regions_rpt, .sortorder
 ] | map(. | tostring) | @csv
 EOF
-) "${WORKDIR}/${SLURM_ARRAY_TASK_ID}.json" >"assembly_${SLURM_ARRAY_TASK_ID}.csv"
+) "${SLURM_ARRAY_TASK_ID}.json" >"assembly_${SLURM_ARRAY_TASK_ID}.csv"
 
 # Download data
 echo "Preparing download lists.."
@@ -94,7 +94,7 @@ to_entries | .[].value | {uid: .uid} + (
 ) |
 "\(.uid)\t\(.host)\t\(.path)"
 EOF
-) "${WORKDIR}/${SLURM_ARRAY_TASK_ID}.json" |
+) "${SLURM_ARRAY_TASK_ID}.json" |
   while IFS=$'\t' read -r id host path; do
     # For each assembly, prepare directory and add to rsync --files-from
     mkdir -p "${OUTDIR}/${path}"
