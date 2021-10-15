@@ -31,12 +31,19 @@ if [[ $STOP -ge $COUNT ]]; then
   STOP=$((COUNT - 1))
 fi
 
+# Use node local filesystem and copy to OUTDIR upon completion
+FINALOUTDIR="$OUTDIR"
+OUTDIR="${SLURM_TMPDIR}/outdir"
+mkdir -p "$OUTDIR"
+WORKDIR="$(pwd)"
+cd "$SLURM_TMPDIR"
+
 # Remove non-refseq records and .uids list
-jq '.result | del(.uids) | with_entries(select(.value.rsuid != ""))' "${SLURM_ARRAY_TASK_ID}_raw.json" >"${SLURM_ARRAY_TASK_ID}.json"
+jq '.result | del(.uids) | with_entries(select(.value.rsuid != ""))' "${WORKDIR}/${SLURM_ARRAY_TASK_ID}_raw.json" >"${SLURM_ARRAY_TASK_ID}.json"
 
 # Skip if no records to process
-if [[ $(jq 'length' "${SLURM_ARRAY_TASK_ID}.json") == 0 ]]; then
-  echo "No records have a refseq uid of $(jq '.result.uids | length') records, skipping."
+if [[ $(jq 'length' "${WORKDIR}/${SLURM_ARRAY_TASK_ID}.json") == 0 ]]; then
+  echo "No records have a refseq uid of $(jq '.result.uids | length' "${WORKDIR}/${SLURM_ARRAY_TASK_ID}.json") records, skipping."
   echo $SLURM_ARRAY_TASK_ID >>completed_tasks
   exit 0
 fi
@@ -62,7 +69,7 @@ jq -r -f <(
     .ftppath_regions_rpt, .sortorder
 ] | map(. | tostring) | @csv
 EOF
-) "${SLURM_ARRAY_TASK_ID}.json" >"assembly_${SLURM_ARRAY_TASK_ID}.csv"
+) "${WORKDIR}/${SLURM_ARRAY_TASK_ID}.json" >"assembly_${SLURM_ARRAY_TASK_ID}.csv"
 
 # Download data
 echo "Preparing download lists.."
@@ -87,7 +94,7 @@ to_entries | .[].value | {uid: .uid} + (
 ) |
 "\(.uid)\t\(.host)\t\(.path)"
 EOF
-) "${SLURM_ARRAY_TASK_ID}.json" |
+) "${WORKDIR}/${SLURM_ARRAY_TASK_ID}.json" |
   while IFS=$'\t' read -r id host path; do
     # For each assembly, prepare directory and add to rsync --files-from
     mkdir -p "${OUTDIR}/${path}"
@@ -294,6 +301,10 @@ EOF
     done
   done
 
+# Copy data from local scratch to nfs
+rsync -av --inplace "${OUTDIR}/*" "${FINALOUTDIR}"
+rsync -ptgov --inplace ./* "$WORKDIR"
+
 echo "Populating assembly, summaries and datasets tables.."
 sqlite3 -bail "${DBPATH}" <<EOF
 -- PRAGMA foreign_keys = ON;
@@ -321,4 +332,4 @@ END TRANSACTION;
 EOF
 
 echo "Done."
-echo $SLURM_ARRAY_TASK_ID >>completed_tasks
+echo $SLURM_ARRAY_TASK_ID >> "${WORKDIR}/completed_tasks"
