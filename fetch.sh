@@ -302,7 +302,7 @@ EOF
   done
 
 echo "Copying data from $OUTDIR to $FINALOUTDIR"
-rsync -av --inplace "${OUTDIR}/*" "${FINALOUTDIR}"
+rsync -av --inplace "${OUTDIR}"/* "${FINALOUTDIR}"
 rsync -ptgov --inplace ./* "$WORKDIR"
 
 echo "Populating assembly, summaries and datasets tables.."
