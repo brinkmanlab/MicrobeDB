@@ -22,6 +22,7 @@ REPONAME="microbedb.brinkmanlab.ca"
 
 IGNOREEXIT=24
 IGNOREOUT='^(file has vanished: |rsync warning: some files vanished before they could be transferred)'
+RETRIES=10  # Number of times to reattempt rsync network errors before failing
 
 
 START=$((SLURM_ARRAY_TASK_ID * STEP)) # Handle # https://support.computecanada.ca/otrs/customer.pl?Action=CustomerTicketZoom;TicketID=135515
@@ -116,9 +117,14 @@ if [[ -z $SKIP_RSYNC ]]; then
         # Sync comparing to existing CVMFS repo
         if [[ -d "${host}_${SLURM_ARRAY_TASK_ID}.md5" && -f "${REPOPATH}/microbedb.sqlite" ]]; then
           # Use checksums to only download files that have changed and
-          rsync -rvcm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="${host}_${SLURM_ARRAY_TASK_ID}.md5" --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
-          ret=$?
-          if [[ $ret != $IGNOREEXIT && $ret != 0 ]]; then
+          ret=30
+          retries=$RETRIES
+          while (( (ret == 30 || ret == 35) && retries > 0 )); do
+            rsync -rvcm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="${host}_${SLURM_ARRAY_TASK_ID}.md5" --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
+            ret=$?
+            ((--retries))
+          done
+          if (( ret != IGNOREEXIT && ret != 0 )); then
             echo "Detected rsync error ($ret) during md5checksums sync."
             exit $ret
           fi
@@ -134,19 +140,29 @@ if [[ -z $SKIP_RSYNC ]]; then
 SELECT c.ncbi_path FROM datasets d LEFT JOIN checksums c ON d.path = c.path WHERE d.path IS NULL OR d.checksum != c.checksum;
 EOF
         fi
-        rsync -rvcm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="${files}" --inplace --compare-dest="${REPOPATH}" "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
-        ret=$?
+        ret=30
+        retries=$RETRIES
+        while (( (ret == 30 || ret == 35) && retries > 0 )); do
+          rsync -rvcm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="${files}" --inplace --compare-dest="${REPOPATH}" "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
+          ret=$?
+          ((--retries))
+        done
       else
         # Download everything without comparing
-        rsync -rvcm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="${files}" --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
-        ret=$?
-        if [[ $ret == $IGNOREEXIT || $ret == 0 ]]; then
+        ret=30
+        retries=$RETRIES
+        while (( (ret == 30 || ret == 35) && retries > 0 )); do
+          rsync -rvcm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="${files}" --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
+          ret=$?
+          ((--retries))
+        done
+        if (( ret == IGNOREEXIT || ret == 0 )); then
           cat "${host}_${SLURM_ARRAY_TASK_ID}.md5" | while read -r path; do
             gawk -v PATH=$(dirname $path) "$TOSCHEMA" "${OUTDIR}/${path}" >>"checksums_${SLURM_ARRAY_TASK_ID}.csv"
           done
         fi
       fi
-      if [[ $ret != $IGNOREEXIT && $ret != 0 ]]; then
+      if (( ret != IGNOREEXIT && ret != 0 )); then
         echo "Detected rsync error ($ret)."
         exit $ret
       fi
