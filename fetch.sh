@@ -43,7 +43,7 @@ cd "$SLURM_TMPDIR"
 jq '.result | del(.uids) | with_entries(select(.value.rsuid != ""))' "${WORKDIR}/${SLURM_ARRAY_TASK_ID}_raw.json" >"${SLURM_ARRAY_TASK_ID}.json"
 
 # Skip if no records to process
-if [[ $(jq 'length' "${WORKDIR}/${SLURM_ARRAY_TASK_ID}.json") == 0 ]]; then
+if [[ $(jq 'length' "${SLURM_ARRAY_TASK_ID}.json") == 0 ]]; then
   echo "No records have a refseq uid of $(jq '.result.uids | length' "${SLURM_ARRAY_TASK_ID}.json") records, skipping."
   echo $SLURM_ARRAY_TASK_ID >> "${WORKDIR}/completed_tasks"
   exit 0
