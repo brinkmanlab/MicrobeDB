@@ -301,7 +301,7 @@ EOF
     done
   done
 
-# Copy data from local scratch to nfs
+echo "Copying data from $OUTDIR to $FINALOUTDIR"
 rsync -av --inplace "${OUTDIR}/*" "${FINALOUTDIR}"
 rsync -ptgov --inplace ./* "$WORKDIR"
 
