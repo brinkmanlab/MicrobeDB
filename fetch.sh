@@ -135,14 +135,15 @@ SELECT c.ncbi_path FROM datasets d LEFT JOIN checksums c ON d.path = c.path WHER
 EOF
         fi
         rsync -rvcm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="${files}" --inplace --compare-dest="${REPOPATH}" "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
+        ret=$?
       else
         # Download everything without comparing
         rsync -rvcm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="${files}" --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
+        ret=$?
         cat "${host}_${SLURM_ARRAY_TASK_ID}.md5" | while read -r path; do
           gawk -v PATH=$(dirname $path) "$TOSCHEMA" "${OUTDIR}/${path}" >>"checksums_${SLURM_ARRAY_TASK_ID}.csv"
         done
       fi
-      ret=$?
       if [[ $ret != $IGNOREEXIT && $ret != 0 ]]; then
         echo "Detected rsync error ($ret)."
         exit $ret
