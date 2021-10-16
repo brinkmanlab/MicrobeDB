@@ -246,7 +246,7 @@ EOF
         gawk -v UID="$uid" -v PREFIX="${prefix}" -v PATH="${path}" -v EXT='fna' -v PARENT="${f#"$OUTDIR/"}" "$TOSCHEMA" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
     done
 
-    echo "Generating replicon ffn, faa, ptt of ${path}.."
+    echo "Generating replicon ffn of ${path}.."
     for f in ${OUTDIR}/${path}/*.gbk; do
       # Recover the seqid from the file directly
       seqid="$(biopython.convert -q '[[0].id]' "${f}" genbank /dev/stdout text)"
@@ -271,6 +271,7 @@ EOF
       )" "${f}" genbank "${f%.*}.ffn" fasta
       echo "${uid},${seqid},\"${path}/${prefix}.ffn\",ffn,\"${suffix}\",\"${f#"$OUTDIR/"}\"" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
 
+      echo "Generating replicon faa of ${path}.."
       biopython.convert -q "$(
         cat <<'EOF'
 [0].let({organism: (annotations.organism || annotations.source)}, &features[?type=='CDS' && qualifiers.translation].{id:
@@ -296,6 +297,7 @@ EOF
       #Location        Strand  Length  PID     Gene    Synonym         Code    COG     Product
       #1..4071977      +       466     -       dnaA    DW350_RS00005   -       -       chromosomal replication initiator protein DnaA
       #1348..2451      +       367     -       dnaN    DW350_RS00010   -       -       DNA polymerase III subunit beta
+      echo "Generating replicon ptt of ${path}.."
       biopython.convert -q "$(
         cat <<'EOF'
 [0].[
