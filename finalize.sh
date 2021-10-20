@@ -11,7 +11,8 @@
 set -e -o pipefail  # Halt on error
 
 echo "Populating taxonomy table.."
-sqlite3 -bail "${DBPATH}" 'SELECT uid, taxid FROM assembly;' | while IFS='|' read uid taxid; do
+sqlite3 -bail "${DBPATH}" 'SELECT uid, taxid FROM assembly;' > assembly_table.temp  # Write to temp file to avoid database lock
+cat assembly_table.temp | while IFS='|' read uid taxid; do
   sqlite3 -bail "${DBPATH}" <<EOF
 WITH RECURSIVE
   subClassOf(n, r, name) AS (
@@ -34,6 +35,7 @@ INSERT OR REPLACE INTO taxonomy ("taxon_id","superkingdom","phylum","tax_class",
 );
 EOF
 done
+rm assembly_table.temp
 
 if [[ -z $CLEAN && -f ${REPOPATH}/microbedb.sqlite ]]; then
   echo "Copying forward any summaries and datasets that were not synced.."
