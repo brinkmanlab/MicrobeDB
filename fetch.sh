@@ -282,7 +282,7 @@ join('|', [
   join('', [':', [location][?strand==`-1`] && 'c' || '', to_string(sum([location.start, `1`])), '..', to_string(location.end)])
 ][][]),
 seq: qualifiers.translation[0],
-description: (organism && join('', [qualifiers.product[0], ' [', organism, ']']) || qualifiers.product[0])})
+description: (organism && join('', [qualifiers.product[0] || qualifiers.protein_id[0], ' [', organism, ']']) || qualifiers.product[0])})
 EOF
       )" "${f}" genbank "${f%.*}.faa" fasta
       echo "${uid},${seqid},\"${path}/${prefix}.faa\",faa,\"${suffix}\",\"${f#"$OUTDIR/"}\"" >>"replicon_idx_${SLURM_ARRAY_TASK_ID}.csv"
