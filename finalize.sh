@@ -2,6 +2,7 @@
 #SBATCH --account=rrg-fiona-ad
 #SBATCH --job-name=microbedb-finalize
 #SBATCH --time=20:00:00
+#SBATCH --mem-per-cpu=2000M
 #SBATCH --export=ALL
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
