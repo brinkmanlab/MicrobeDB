@@ -49,13 +49,24 @@ sort -n completed_tasks |
   fi
   indexs="${indexs:1}"
   echo "$indexs"
-  job=$(sbatch --array="${indexs}%50" "${SRCDIR}/fetch.sh")
-  if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
-    echo "Scheduling finalize.sh after job ${BASH_REMATCH[1]} completes"
-    sbatch --dependency="afterok:${BASH_REMATCH[1]}" "${SRCDIR}/finalize.sh"
-    echo "Run 'squeue -rj ${BASH_REMATCH[1]}' to monitor progress"
+  if [[ -n $indexs ]]; then
+    job=$(sbatch --array="${indexs}%50" "${SRCDIR}/fetch.sh")
+    if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
+      echo "Scheduling finalize.sh after job ${BASH_REMATCH[1]} completes"
+      sbatch --dependency="afterok:${BASH_REMATCH[1]}" "${SRCDIR}/finalize.sh"
+      echo "Run 'squeue -rj ${BASH_REMATCH[1]}' to monitor progress"
+    else
+      echo "finalize.sh failed to schedule, sbatch failed to return job id for fetch.sh"
+      exit 1
+    fi
   else
-    echo "finalize.sh failed to schedule, sbatch failed to return job id for fetch.sh"
-    exit 1
+    echo "All fetch jobs complete, rescheduling finalize.sh"
+    job=$(sbatch "${SRCDIR}/finalize.sh")
+    if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
+      echo "Run 'squeue -rj ${BASH_REMATCH[1]}' to monitor progress"
+    else
+      echo "finalize.sh failed to schedule, sbatch failed to return job id"
+      exit 1
+    fi
   fi
 )
