@@ -30,7 +30,8 @@ INSERT OR REPLACE INTO taxonomy ("taxon_id","superkingdom","phylum","tax_class",
        (SELECT name FROM subClassOf WHERE r == 'genus'),
        (SELECT name FROM subClassOf WHERE r == 'species'),
        (SELECT name FROM subClassOf WHERE r NOT IN ('superkingdom','phylum','tax_class','order','family','genus','species', NULL)),
-       (SELECT GROUP_CONCAT(name_txt, ';') FROM taxonomy_names WHERE tax_id = $taxid AND name_class = 'synonym' );
+       (SELECT GROUP_CONCAT(name_txt, ';') FROM taxonomy_names WHERE tax_id = $taxid AND name_class = 'synonym' )
+);
 EOF
 done
 
