@@ -184,10 +184,14 @@ if [[ -n $LOCAL ]]; then
   # Run scripts locally rather than sbatch
   echo "Running fetch.sh locally for $COUNT records"
   for ((i = 0; i < $TASKCOUNT; i++)); do
-    SLURM_ARRAY_TASK_ID=$i SKIP_RSYNC=$SKIP_RSYNC "${SRCDIR}/fetch.sh"
+    SLURM_TMPDIR="$(mktemp -d microbedb_$i.XXXXXXXXXX)"
+    SLURM_ARRAY_TASK_ID=$i SLURM_TMPDIR="$SLURM_TMPDIR" "${SRCDIR}/fetch.sh"
+    rm -rf "$SLURM_TMPDIR"
   done
   echo "Running finalize.sh locally.."
-  "$SRCDIR"/finalize.sh
+  SLURM_TMPDIR="$(mktemp -d microbedb_final.XXXXXXXXXX)"
+  SLURM_TMPDIR="$SLURM_TMPDIR" "$SRCDIR"/finalize.sh
+  rm -rf "$SLURM_TMPDIR"
 else
   # Batch submit fetch.sh
   # Handle https://support.computecanada.ca/otrs/customer.pl?Action=CustomerTicketZoom;TicketID=135515
