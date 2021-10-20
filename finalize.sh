@@ -11,9 +11,9 @@
 set -e -o pipefail  # Halt on error
 
 echo "Populating taxonomy table.."
-sqlite3 -bail "${DBPATH}" 'SELECT uid, taxid FROM assembly;' > assembly_table.temp  # Write to temp file to avoid database lock
-cat assembly_table.temp | while IFS='|' read uid taxid; do
-  sqlite3 -bail "${DBPATH}" <<EOF
+cp "$DBPATH" "${SLURM_TMPDIR}/microbedb.sqlite"
+sqlite3 -bail "${DBPATH}" 'SELECT uid, taxid FROM assembly;' | while IFS='|' read uid taxid; do
+  sqlite3 -bail "${SLURM_TMPDIR}/microbedb.sqlite" <<EOF
 WITH RECURSIVE
   subClassOf(n, r, name) AS (
     VALUES($taxid, null, null)
@@ -35,13 +35,12 @@ INSERT OR REPLACE INTO taxonomy ("taxon_id","superkingdom","phylum","tax_class",
 );
 EOF
 done
-rm assembly_table.temp
 
 if [[ -z $CLEAN && -f ${REPOPATH}/microbedb.sqlite ]]; then
   echo "Copying forward any summaries and datasets that were not synced.."
   cat checksums_*.csv > checksums.csv
 # TODO needs a multi-way inner join between checksums, summaries, and datasets across old, inserted or ignored into new
-#  sqlite3 -bail "${DBPATH}" <<EOF
+#  sqlite3 -bail "${SLURM_TMPDIR}/microbedb.sqlite" <<EOF
 #.read ${SRCDIR}/temp_tables.sql
 #.import checksums.csv checksums
 #PRAGMA foreign_keys = ON;
@@ -60,7 +59,9 @@ if [[ -z $CLEAN && -f ${REPOPATH}/microbedb.sqlite ]]; then
 #END TRANSACTION;
 #EOF
 fi
-# TODO vaccuum database
+
+mv "${SLURM_TMPDIR}/microbedb.sqlite" "$DBPATH"
+
 if [[ -z $NOCOMMIT ]]; then
   echo "Opening CVMFS transaction.."
   ssh -i ${KEYPATH} ${STRATUM0} <<REMOTE
