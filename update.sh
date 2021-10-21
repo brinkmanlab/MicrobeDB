@@ -44,7 +44,7 @@ export KEYPATH="${KEYPATH:-${HOME}/.ssh/cvmfs.pem}"
 export STRATUM0="${STRATUM0:-centos@stratum-0.brinkmanlab.ca}"
 export PATH="${PATH}:${EDIRECT:-$(realpath "$SRCDIR"/edirect)}"
 
-module load python/3.9.6
+module load python/3.9.6 sqlite/3.36
 source "$SRCDIR"/venv/bin/activate
 
 # Write env script for manual use
@@ -64,7 +64,7 @@ export SKIP_RSYNC="$SKIP_RSYNC"
 export KEEP_OUTDIR="$KEEP_OUTDIR"
 export CLEAN="$CLEAN"
 
-module load python/3.9.6
+module load python/3.9.6 sqlite/3.36
 source "$SRCDIR"/venv/bin/activate
 ENV
 

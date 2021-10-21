@@ -17,24 +17,24 @@ sqlite3 -bail "${DBPATH}" 'SELECT uid, taxid FROM assembly;' | while IFS='|' rea
   sqlite3 -bail -readonly "${SLURM_TMPDIR}/microbedb.sqlite" <<EOF >> "${SLURM_TMPDIR}/taxonomy.psv"
 .mode list
 WITH RECURSIVE
-  subClassOf(n, r, name) AS (
+  subClassOf(n, r, name) AS MATERIALIZED (
     VALUES($taxid, null, null)
     UNION
     SELECT parent_tax_id, rank, name_txt FROM taxonomy_nodes, subClassOf, taxonomy_names
      WHERE taxonomy_nodes.tax_id = subClassOf.n AND taxonomy_names.tax_id == taxonomy_nodes.tax_id AND taxonomy_names.name_class == 'scientific name' AND taxonomy_nodes.rank != 'no rank'
   )
-SELECT (
-        $taxid,
-       (SELECT name FROM subClassOf WHERE r == 'superkingdom'),
-       (SELECT name FROM subClassOf WHERE r == 'phylum'),
-       (SELECT name FROM subClassOf WHERE r == 'class'),
-       (SELECT name FROM subClassOf WHERE r == 'order'),
-       (SELECT name FROM subClassOf WHERE r == 'family'),
-       (SELECT name FROM subClassOf WHERE r == 'genus'),
-       (SELECT name FROM subClassOf WHERE r == 'species'),
-       (SELECT name FROM subClassOf WHERE r NOT IN ('superkingdom','phylum','tax_class','order','family','genus','species', NULL)),
-       (SELECT GROUP_CONCAT(name_txt, ';') FROM taxonomy_names WHERE tax_id = $taxid AND name_class = 'synonym' )
-);
+SELECT
+  $taxid,
+  (SELECT name FROM subClassOf WHERE r == 'superkingdom'),
+  (SELECT name FROM subClassOf WHERE r == 'phylum'),
+  (SELECT name FROM subClassOf WHERE r == 'class'),
+  (SELECT name FROM subClassOf WHERE r == 'order'),
+  (SELECT name FROM subClassOf WHERE r == 'family'),
+  (SELECT name FROM subClassOf WHERE r == 'genus'),
+  (SELECT name FROM subClassOf WHERE r == 'species'),
+  (SELECT name FROM subClassOf WHERE r NOT IN ('superkingdom','phylum','tax_class','order','family','genus','species', NULL)),
+  (SELECT GROUP_CONCAT(name_txt, ';') FROM taxonomy_names WHERE tax_id = $taxid AND name_class = 'synonym' )
+;
 EOF
 done
 cp "${SLURM_TMPDIR}/taxonomy.psv" .
