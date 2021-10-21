@@ -25,14 +25,14 @@ WITH RECURSIVE
   )
 SELECT
   $taxid,
-  (SELECT name FROM subClassOf WHERE r == 'superkingdom'),
-  (SELECT name FROM subClassOf WHERE r == 'phylum'),
-  (SELECT name FROM subClassOf WHERE r == 'class'),
-  (SELECT name FROM subClassOf WHERE r == 'order'),
-  (SELECT name FROM subClassOf WHERE r == 'family'),
-  (SELECT name FROM subClassOf WHERE r == 'genus'),
-  (SELECT name FROM subClassOf WHERE r == 'species'),
-  (SELECT name FROM subClassOf WHERE r NOT IN ('superkingdom','phylum','tax_class','order','family','genus','species', NULL)),
+  (SELECT name FROM subClassOf WHERE r == 'superkingdom' LIMIT 1),
+  (SELECT name FROM subClassOf WHERE r == 'phylum' LIMIT 1),
+  (SELECT name FROM subClassOf WHERE r == 'class' LIMIT 1),
+  (SELECT name FROM subClassOf WHERE r == 'order' LIMIT 1),
+  (SELECT name FROM subClassOf WHERE r == 'family' LIMIT 1),
+  (SELECT name FROM subClassOf WHERE r == 'genus' LIMIT 1),
+  (SELECT name FROM subClassOf WHERE r == 'species' LIMIT 1),
+  (SELECT name FROM subClassOf WHERE r NOT IN ('superkingdom','phylum','tax_class','order','family','genus','species', NULL) LIMIT 1),
   (SELECT GROUP_CONCAT(name_txt, ';') FROM taxonomy_names WHERE tax_id = $taxid AND name_class = 'synonym' )
 ;
 EOF
