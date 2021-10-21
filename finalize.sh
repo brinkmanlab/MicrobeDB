@@ -11,10 +11,11 @@
 # brinkman-ws+microbedb@sfu.ca
 set -e -o pipefail  # Halt on error
 
-echo "Populating taxonomy table.."
+echo "Generating taxonomy table.."
 cp "$DBPATH" "${SLURM_TMPDIR}/microbedb.sqlite"
 sqlite3 -bail "${DBPATH}" 'SELECT uid, taxid FROM assembly;' | while IFS='|' read uid taxid; do
-  sqlite3 -bail "${SLURM_TMPDIR}/microbedb.sqlite" <<EOF
+  sqlite3 -bail -readonly "${SLURM_TMPDIR}/microbedb.sqlite" <<EOF >> "${SLURM_TMPDIR}/taxonomy.psv"
+.mode list
 WITH RECURSIVE
   subClassOf(n, r, name) AS (
     VALUES($taxid, null, null)
@@ -22,7 +23,7 @@ WITH RECURSIVE
     SELECT parent_tax_id, rank, name_txt FROM taxonomy_nodes, subClassOf, taxonomy_names
      WHERE taxonomy_nodes.tax_id = subClassOf.n AND taxonomy_names.tax_id == taxonomy_nodes.tax_id AND taxonomy_names.name_class == 'scientific name' AND taxonomy_nodes.rank != 'no rank'
   )
-INSERT OR REPLACE INTO taxonomy ("taxon_id","superkingdom","phylum","tax_class","order","family","genus","species","other","synonyms") VALUES (
+SELECT (
         $taxid,
        (SELECT name FROM subClassOf WHERE r == 'superkingdom'),
        (SELECT name FROM subClassOf WHERE r == 'phylum'),
@@ -36,6 +37,12 @@ INSERT OR REPLACE INTO taxonomy ("taxon_id","superkingdom","phylum","tax_class",
 );
 EOF
 done
+cp "${SLURM_TMPDIR}/taxonomy.psv" .
+echo "Populating taxonomy table.."
+sqlite3 -bail "${SLURM_TMPDIR}/microbedb.sqlite" <<EOF
+.mode list
+.import "${SLURM_TMPDIR}/taxonomy.psv" taxonomy
+EOF
 
 if [[ -z $CLEAN && -f ${REPOPATH}/microbedb.sqlite ]]; then
   echo "Copying forward any summaries and datasets that were not synced.."
