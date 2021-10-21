@@ -14,8 +14,7 @@ set -e -o pipefail  # Halt on error
 echo "Generating taxonomy table.."
 cp "$DBPATH" "${SLURM_TMPDIR}/microbedb.sqlite"
 sqlite3 -bail "${DBPATH}" 'SELECT uid, taxid FROM assembly;' | while IFS='|' read uid taxid; do
-  sqlite3 -bail -readonly "${SLURM_TMPDIR}/microbedb.sqlite" <<EOF >> "${SLURM_TMPDIR}/taxonomy.psv"
-.mode list
+  cat <<EOF
 WITH RECURSIVE
   subClassOf(n, r, name) AS MATERIALIZED (
     VALUES($taxid, null, null)
@@ -36,7 +35,7 @@ SELECT
   (SELECT GROUP_CONCAT(name_txt, ';') FROM taxonomy_names WHERE tax_id = $taxid AND name_class = 'synonym' )
 ;
 EOF
-done
+done | sqlite3 -bail -readonly "${SLURM_TMPDIR}/microbedb.sqlite" >> "${SLURM_TMPDIR}/taxonomy.psv"
 cp "${SLURM_TMPDIR}/taxonomy.psv" .
 echo "Populating taxonomy table.."
 sqlite3 -bail "${SLURM_TMPDIR}/microbedb.sqlite" <<EOF
