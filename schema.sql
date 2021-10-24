@@ -107,6 +107,7 @@ CREATE TABLE taxonomy_names
     unique_name TEXT,    -- the unique variant of this name if name not unique
     name_class  TEXT     -- (synonym, common name, ...)
 );
+CREATE INDEX taxonomy_names_tax_id ON taxonomy_names (tax_id);
 
 CREATE TABLE taxonomy_divisions
     --- Taxonomy divisions referenced by taxonomy_nodes table

@@ -149,7 +149,7 @@ rm -f "${DBPATH}"
 sqlite3 -bail "${DBPATH}" <"${SRCDIR}/schema.sql"
 
 if [[ -z $SKIP_TAXONOMY ]]; then
-  # Load taxonomy table
+  # Load taxonomy data
   echo "Downloading taxonomy data.."
   rsync --progress --update rsync://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz .
   rm -rf taxdump
@@ -163,7 +163,7 @@ if [[ -z $SKIP_TAXONOMY ]]; then
   sed -i 's/\t|$/"/g' taxdump/*.dmp
   sed -i 's/\t|\t/","/g' taxdump/*.dmp
 
-  echo "Loading taxonomy table.."
+  echo "Loading taxonomy data.."
   sqlite3 -bail "${DBPATH}" <<EOF
 PRAGMA foreign_keys = ON;
 .mode csv
