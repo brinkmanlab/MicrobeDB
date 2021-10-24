@@ -35,13 +35,10 @@ SELECT
   (SELECT GROUP_CONCAT(name_txt, ';') FROM taxonomy_names WHERE tax_id = $taxid AND name_class = 'synonym' )
 ;
 EOF
-done | sqlite3 -bail -readonly "${SLURM_TMPDIR}/microbedb.sqlite" >> "${SLURM_TMPDIR}/taxonomy.psv"
-cp "${SLURM_TMPDIR}/taxonomy.psv" .
+done | sqlite3 -bail -readonly "${SLURM_TMPDIR}/microbedb.sqlite" '.mode insert taxonomy' '.read /dev/stdin' >> "${SLURM_TMPDIR}/taxonomy.sql"
+cp "${SLURM_TMPDIR}/taxonomy.sql" .
 echo "Populating taxonomy table.."
-sqlite3 -bail "${SLURM_TMPDIR}/microbedb.sqlite" <<EOF
-.mode list
-.import "${SLURM_TMPDIR}/taxonomy.psv" taxonomy
-EOF
+sqlite3 -bail "${SLURM_TMPDIR}/microbedb.sqlite" <"${SLURM_TMPDIR}/taxonomy.sql"
 
 if [[ -z $CLEAN && -f ${REPOPATH}/microbedb.sqlite ]]; then
   echo "Copying forward any summaries and datasets that were not synced.."
