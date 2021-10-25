@@ -13,7 +13,7 @@ set -e -o pipefail  # Halt on error
 
 echo "Generating taxonomy table.."
 cp "$DBPATH" "${SLURM_TMPDIR}/microbedb.sqlite"
-sqlite3 -bail "${DBPATH}" 'SELECT uid, taxid FROM assembly;' | while IFS='|' read uid taxid; do
+sqlite3 -bail "${DBPATH}" 'SELECT DISTINCT taxid FROM assembly;' | while IFS='|' read taxid; do
   cat <<EOF
 WITH RECURSIVE
   subClassOf(n, r, name) AS MATERIALIZED (
