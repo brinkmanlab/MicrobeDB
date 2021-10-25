@@ -84,8 +84,8 @@ REMOTE
   ssh -i "${KEYPATH}" "${STRATUM0}" <<REMOTE
 sudo bash
 set -e -o pipefail  # Halt on error
-echo "Deleting all files no longer referenced in the database.."
 if [[ -f ${REPOPATH}/microbedb.sqlite.old ]]; then
+  echo "Deleting all files no longer referenced in the database.."
   sqlite3 -bail "${REPOPATH}/microbedb.sqlite" <<EOF | xargs -I % rm -rfdv "${REPOPATH}/%"
 .mode list
 ATTACH DATABASE '${REPOPATH}/microbedb.sqlite.old' AS old;
