@@ -35,7 +35,7 @@ SELECT
   (SELECT GROUP_CONCAT(name_txt, ';') FROM taxonomy_names WHERE tax_id = $taxid AND name_class = 'synonym' )
 ;
 EOF
-done | cat <(echo '.mode insert taxonomy') - | sqlite3 -bail -readonly "${SLURM_TMPDIR}/microbedb.sqlite" > "${SLURM_TMPDIR}/taxonomy.sql"
+done | cat <(echo '.mode insert taxonomy'; echo 'DELETE FROM taxonomy;') - | sqlite3 -bail -readonly "${SLURM_TMPDIR}/microbedb.sqlite" > "${SLURM_TMPDIR}/taxonomy.sql"
 cp "${SLURM_TMPDIR}/taxonomy.sql" .
 echo "Populating taxonomy table.."
 sqlite3 -bail "${SLURM_TMPDIR}/microbedb.sqlite" <"${SLURM_TMPDIR}/taxonomy.sql"
