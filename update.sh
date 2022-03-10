@@ -185,7 +185,7 @@ echo
 
 #TODO if $LOCAL_FETCH else schedule on slurm
 eval cat "{0..$((TASKCOUNT - 1))}.json" >all.json
-SLURM_ARRAY_TASK_ID="all.json" "${SRCDIR}/fetch.sh"
+SLURM_ARRAY_TASK_ID="all" "${SRCDIR}/fetch.sh"
 
 if [[ -n $LOCAL ]]; then
   # Run scripts locally rather than sbatch
