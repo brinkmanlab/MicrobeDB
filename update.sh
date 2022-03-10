@@ -116,33 +116,6 @@ export TASKCOUNT=$TASKCOUNT
 export COUNT=$COUNT
 ENV
 
-echo -n "Downloading records.."
-for ((i = 0; i < $TASKCOUNT; i++)); do
-  START=$((i * STEP))
-  STOP=$((START + STEP - 1))
-  if [[ $STOP -ge $COUNT ]]; then
-    STOP=$((COUNT - 1))
-  fi
-  efetch -mode json -format docsum -start "$START" -stop "$STOP" <query.xml >"${i}_raw.json"
-
-  # Verify Entrez API version
-  VERSION="$(tr '\n' ' ' < "${i}_raw.json" | jq -r '.header.version')"
-  if [ "$VERSION" != '0.3' ]; then
-    echo "Unexpected Entrez API version '$VERSION'. Update this script to accept new Entrez response schema."
-    exit 1
-  fi
-
-  ERROR="$(tr '\n' ' ' < "${i}_raw.json" | jq -r '.error')"
-  if [[ $ERROR != 'null' ]]; then
-    echo "Failed to fetch subquery from NCBI:"
-    echo "$ERROR"
-    exit 1
-  fi
-
-  echo -n "."
-done
-echo
-
 # Prepare microbedb.sqlite
 echo "Preparing database.."
 rm -f "${DBPATH}"
@@ -180,9 +153,43 @@ fi
 echo "Setting folder permissions.."
 chmod -R ugo+rX "$WORKDIR"
 
+echo -n "Downloading records.."
+for ((i = 0; i < $TASKCOUNT; i++)); do
+  START=$((i * STEP))
+  STOP=$((START + STEP - 1))
+  if [[ $STOP -ge $COUNT ]]; then
+    STOP=$((COUNT - 1))
+  fi
+  efetch -mode json -format docsum -start "$START" -stop "$STOP" <query.xml >"${i}_raw.json"
+
+  # Verify Entrez API version
+  VERSION="$(tr '\n' ' ' < "${i}_raw.json" | jq -r '.header.version')"
+  if [ "$VERSION" != '0.3' ]; then
+    echo "Unexpected Entrez API version '$VERSION'. Update this script to accept new Entrez response schema."
+    exit 1
+  fi
+
+  ERROR="$(tr '\n' ' ' < "${i}_raw.json" | jq -r '.error')"
+  if [[ $ERROR != 'null' ]]; then
+    echo "Failed to fetch subquery from NCBI:"
+    echo "$ERROR"
+    exit 1
+  fi
+
+  # Remove non-refseq records and .uids list
+  jq '.result | del(.uids) | with_entries(select(.value.rsuid != ""))' "${i}_raw.json" >"${i}.json"
+
+  echo -n "."
+done
+echo
+
+#TODO if $LOCAL_FETCH else schedule on slurm
+eval cat "{0..$((TASKCOUNT - 1))}.json" >all.json
+SLURM_ARRAY_TASK_ID="all.json" "${SRCDIR}/fetch.sh"
+
 if [[ -n $LOCAL ]]; then
   # Run scripts locally rather than sbatch
-  echo "Running fetch.sh locally for $COUNT records"
+  echo "Running process.sh locally for $COUNT records"
   for ((i = 0; i < $TASKCOUNT; i++)); do
     SLURM_TMPDIR="$(mktemp -d microbedb_$i.XXXXXXXXXX)"
     SLURM_ARRAY_TASK_ID=$i SLURM_TMPDIR="$SLURM_TMPDIR" "${SRCDIR}/fetch.sh"
@@ -202,8 +209,8 @@ else
     echo "This is possibly due to a misconfiguration of max_array_tasks and MaxArraySize in the SLURM config."
     exit 1
   fi
-  echo "Submitting $COUNT records with fetch.sh to sbatch"
-  job=$(sbatch --array=0-$((TASKCOUNT - 1))%50 "${SRCDIR}/fetch.sh")
+  echo "Submitting $COUNT records with process.sh to sbatch"
+  job=$(sbatch --array=0-$((TASKCOUNT - 1))%50 "${SRCDIR}/process.sh")
   if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
     echo "Scheduling finalize.sh after job ${BASH_REMATCH[1]} completes"
     sbatch --dependency="afterok:${BASH_REMATCH[1]}" "${SRCDIR}/finalize.sh"
