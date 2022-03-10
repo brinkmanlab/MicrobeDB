@@ -19,6 +19,7 @@ shopt -s nullglob
 
 FTP_GENOMES_PREFIX="genomes/" # NCBI rsync server returns error if you try to target root. This variable is the minimum path to avoid that.
 REPONAME="microbedb.brinkmanlab.ca"
+WORKDIR=${pwd}
 
 IGNOREEXIT=24
 IGNOREOUT='^(file has vanished: |rsync warning: some files vanished before they could be transferred)'
@@ -34,7 +35,7 @@ fi
 echo "Preparing download lists.."
 if [[ -z $CLEAN && ! -d $REPOPATH ]]; then
   # mount repo in userspace if doesn't exist
-  REPOPATH="${OUTDIR}/cvmfs/"
+  REPOPATH="${WORKDIR}/cvmfs/"
   mkdir -p "$REPOPATH"
   cvmfs2 -o config="$SRCDIR/cvmfs.cc.conf" "$REPONAME" "$REPOPATH"
 elif [[ -z $CLEAN && -d $REPOPATH && $(cvmfs_config showconfig "$REPONAME" | grep -P 'CVMFS_REPOSITORY_TAG=$|CVMFS_REPOSITORY_DATE=$|CVMFS_ROOT_HASH=$' | wc -l) == 3 ]]; then
@@ -149,6 +150,6 @@ EOF
 done
 
 echo "Done fetch."
-if [[ "$REPOPATH" = "${OUTDIR}/cvmfs/" ]]; then
+if [[ "$REPOPATH" = "${WORKDIR}/cvmfs/" ]]; then
   fusermount -u "$REPOPATH"
 fi
