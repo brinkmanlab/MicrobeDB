@@ -19,7 +19,7 @@ shopt -s nullglob
 
 FTP_GENOMES_PREFIX="genomes/" # NCBI rsync server returns error if you try to target root. This variable is the minimum path to avoid that.
 REPONAME="microbedb.brinkmanlab.ca"
-WORKDIR=${pwd}
+WORKDIR="$(pwd)"
 
 IGNOREEXIT=24
 IGNOREOUT='^(file has vanished: |rsync warning: some files vanished before they could be transferred)'
