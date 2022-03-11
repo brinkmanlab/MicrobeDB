@@ -192,7 +192,7 @@ if [[ -n $LOCAL ]]; then
   echo "Running process.sh locally for $COUNT records"
   for ((i = 0; i < $TASKCOUNT; i++)); do
     SLURM_TMPDIR="$(mktemp -d microbedb_$i.XXXXXXXXXX)"
-    SLURM_ARRAY_TASK_ID=$i SLURM_TMPDIR="$SLURM_TMPDIR" "${SRCDIR}/fetch.sh"
+    SLURM_ARRAY_TASK_ID=$i SLURM_TMPDIR="$SLURM_TMPDIR" "${SRCDIR}/process.sh"
     rm -rf "$SLURM_TMPDIR"
   done
   echo "Running finalize.sh locally.."
@@ -200,7 +200,7 @@ if [[ -n $LOCAL ]]; then
   SLURM_TMPDIR="$SLURM_TMPDIR" "$SRCDIR"/finalize.sh
   rm -rf "$SLURM_TMPDIR"
 else
-  # Batch submit fetch.sh
+  # Batch submit process.sh
   # Handle https://support.computecanada.ca/otrs/customer.pl?Action=CustomerTicketZoom;TicketID=135515
   echo "Calculating max array size.."
   MAXARRAYSIZE=$(scontrol show config | grep MaxArraySize | grep -oP '\d+')
@@ -210,7 +210,7 @@ else
     exit 1
   fi
   echo "Submitting $COUNT records with process.sh to sbatch"
-  job=$(sbatch --array=0-$((TASKCOUNT - 1))%50 "${SRCDIR}/process.sh")
+  job=$(sbatch --array=0-$((TASKCOUNT - 1)) "${SRCDIR}/process.sh")
   if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
     echo "Scheduling finalize.sh after job ${BASH_REMATCH[1]} completes"
     sbatch --dependency="afterok:${BASH_REMATCH[1]}" "${SRCDIR}/finalize.sh"
