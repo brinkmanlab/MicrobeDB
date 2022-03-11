@@ -91,11 +91,11 @@ sync () {
 }
 
 truncate -s0 "checksums_${SLURM_ARRAY_TASK_ID}.csv"
-if [[ -z $SKIP_RSYNC ]]; then
+if [[ -n $SKIP_RSYNC ]]; then
+  echo "Skipping rsync."
   for md5s in *_"${SLURM_ARRAY_TASK_ID}.md5"; do
     to_checksums <"$md5s"
   done
-  echo "Skipping rsync."
   exit 0
 fi
 
