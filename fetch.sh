@@ -80,7 +80,7 @@ sync () {
   local ret=30
   local retries=$RETRIES
   while (( (ret == 30 || ret == 35) && retries > 0 )); do
-    rsync -rvcm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="$1" $2 --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | tee -a "${host}_${SLURM_ARRAY_TASK_ID}.log" | (grep -vP "$IGNOREOUT" || true)
+    rsync -rvvm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="$1" $2 --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | tee -a "${host}_${SLURM_ARRAY_TASK_ID}.log" | (grep -vP "$IGNOREOUT" || true)
     ret=$?
     ((--retries))
   done
