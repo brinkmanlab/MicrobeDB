@@ -80,7 +80,7 @@ sync () {
   local ret=30
   local retries=$RETRIES
   while (( (ret == 30 || ret == 35) && retries > 0 )); do
-    rsync -rvvm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="$1" $2 --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | tee -a "${host}_${SLURM_ARRAY_TASK_ID}.log" | (grep -vP "$IGNOREOUT" || true)
+    rsync -rvvm --no-g --no-p --chmod=u+rwX,go+rX --ignore-missing-args --files-from="$1" $2 --inplace "rsync://${host}/${FTP_GENOMES_PREFIX}" "${OUTDIR}" 2>&1 | (grep -vP "$IGNOREOUT" || true)
     ret=$?
     ((--retries))
   done
@@ -105,8 +105,6 @@ for files in *_${SLURM_ARRAY_TASK_ID}.files; do  # for each host
   if [[ "${files}" =~ ^(.*)_[^_]+\.files$ ]]; then  # extract host from file name
     host="${BASH_REMATCH[1]}"
     echo "Downloading genomic data from ${host}.."
-    echo "Check ${host}_${SLURM_ARRAY_TASK_ID}.log for more information."
-    rm -f "${host}_${SLURM_ARRAY_TASK_ID}.log"
     set +e
     if [[ -d $REPOPATH && -z $CLEAN ]]; then
       # Sync comparing to existing CVMFS repo
