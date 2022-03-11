@@ -183,9 +183,15 @@ for ((i = 0; i < $TASKCOUNT; i++)); do
 done
 echo
 
-#TODO if $LOCAL_FETCH else schedule on slurm
-eval cat "{0..$((TASKCOUNT - 1))}.json" >all.json
-SLURM_ARRAY_TASK_ID="all" "${SRCDIR}/fetch.sh"
+if [[ -n $LOCAL || -n $LOCAL_FETCH ]]; then
+  # Run fetch locally rather than sbatch
+  echo "Running fetch.sh locally for $COUNT records"
+  for ((i = 0; i < $TASKCOUNT; i++)); do
+    SLURM_TMPDIR="$(mktemp -d microbedb_$i.XXXXXXXXXX)"
+    SLURM_ARRAY_TASK_ID=$i SLURM_TMPDIR="$SLURM_TMPDIR" "${SRCDIR}/fetch.sh"
+    rm -rf "$SLURM_TMPDIR"
+  done
+fi
 
 if [[ -n $LOCAL ]]; then
   # Run scripts locally rather than sbatch
