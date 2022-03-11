@@ -105,6 +105,7 @@ for files in *_${SLURM_ARRAY_TASK_ID}.files; do  # for each host
   if [[ "${files}" =~ ^(.*)_[^_]+\.files$ ]]; then  # extract host from file name
     host="${BASH_REMATCH[1]}"
     echo "Downloading genomic data from ${host}.."
+    echo "Check ${host}_${SLURM_ARRAY_TASK_ID}.log for more information."
     rm -f "${host}_${SLURM_ARRAY_TASK_ID}.log"
     set +e
     if [[ -d $REPOPATH && -z $CLEAN ]]; then
