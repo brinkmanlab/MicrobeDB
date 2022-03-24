@@ -27,6 +27,8 @@ set -e -o pipefail            # Halt on error
 # SKIP_RSYNC - Skip syncing data
 # KEEP_OUTDIR - Do not delete OUTDIR upon completion
 # CLEAN - If non-empty, resync entire database without copying forward from REPOPATH
+# LOCAL - Run entire update locally rather than submitting to SLURM
+# LOCAL_FETCH - Run rsync locally rather than including it in SLURM tasks
 
 export SRCDIR="$(dirname $(realpath "$0"))"
 
@@ -63,6 +65,7 @@ export NOCOMMIT="$NOCOMMIT"
 export SKIP_RSYNC="$SKIP_RSYNC"
 export KEEP_OUTDIR="$KEEP_OUTDIR"
 export CLEAN="$CLEAN"
+export LOCAL_FETCH="$LOCAL_FETCH"
 
 module load python/3.9.6 sqlite/3.36
 source "$SRCDIR"/venv/bin/activate

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #SBATCH --account=rrg-fiona-ad
 #SBATCH --time=02:59:00
-#SBATCH --job-name=microbedb-fetch
+#SBATCH --job-name=microbedb-process
 #SBATCH --mem-per-cpu=2000M
 #SBATCH --export=ALL
 #SBATCH --mail-type=FAIL
@@ -25,10 +25,14 @@ mkdir -p "$OUTDIR"
 WORKDIR="$(pwd)"
 cd "$SLURM_TMPDIR"
 
-# Sync NFS scratch to local scratch
-echo "Copying data from ${FINALOUTDIR} to $OUTDIR"
-cat "${WORKDIR}"/*_"${SLURM_ARRAY_TASK_ID}.files" >"${SLURM_ARRAY_TASK_ID}.files"
-rsync -av --files-from="${SLURM_ARRAY_TASK_ID}.files" --inplace "${FINALOUTDIR}" "${OUTDIR}"
+if [[ -n $LOCAL_FETCH ]]; then
+  "${SRCDIR}/fetch.sh"
+else
+  # Sync NFS scratch to local scratch
+  echo "Copying data from ${FINALOUTDIR} to $OUTDIR"
+  cat "${WORKDIR}"/*_"${SLURM_ARRAY_TASK_ID}.files" >"${SLURM_ARRAY_TASK_ID}.files"
+  rsync -av --files-from="${SLURM_ARRAY_TASK_ID}.files" --inplace "${FINALOUTDIR}" "${OUTDIR}"
+fi
 
 # Populate 'assembly' table
 echo "Converting records to CSV.."
@@ -234,4 +238,4 @@ END TRANSACTION;
 EOF
 
 echo "Done processing."
-echo $SLURM_ARRAY_TASK_ID >> "${WORKDIR}/completed_tasks"
+echo $SLURM_ARRAY_TASK_ID >> "${WORKDIR}/completed_processing"

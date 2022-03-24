@@ -1,9 +1,23 @@
 #!/usr/bin/env bash
-# This script will resubmit an array job for any task id not present in the ./completed_tasks file
 # update.sh must have completed successfully before this can run
 source $(dirname $(realpath "$0"))/job.env
 
-if [[ ! -f completed_tasks ]]; then
+# Resubmit jobs for any task id not present in the ./completed_fetch file
+if [[ -n $LOCAL || -n $LOCAL_FETCH ]]; then
+  # Run fetch locally rather than sbatch
+  echo "Running fetch.sh locally for $COUNT records"
+  for ((i = 0; i < $TASKCOUNT; i++)); do
+    if ! grep -Fsqxm1 "$i" completed_fetch; then
+      SLURM_TMPDIR="$(mktemp -d microbedb_$i.XXXXXXXXXX)"
+      SLURM_ARRAY_TASK_ID=$i SLURM_TMPDIR="$SLURM_TMPDIR" "${SRCDIR}/fetch.sh"
+      rm -rf "$SLURM_TMPDIR"
+    fi
+  done
+fi
+
+# Resubmit an array job for any task id not present in the ./completed_processing file
+
+if [[ ! -f completed_processing ]]; then
   job=$(sbatch --array="0-$(($TASKCOUNT - 1))" "${SRCDIR}/process.sh")
   if [[ $job =~ ([[:digit:]]+) ]]; then # sbatch may return human readable string including job id, or only job id
     echo "Scheduling finalize.sh after job ${BASH_REMATCH[1]} completes"
@@ -16,7 +30,7 @@ if [[ ! -f completed_tasks ]]; then
   exit
 fi
 
-sort -n completed_tasks |
+sort -n completed_processing |
 (
   read next_complete
   if (( $? != 0 )); then

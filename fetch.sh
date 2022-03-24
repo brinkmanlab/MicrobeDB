@@ -150,6 +150,7 @@ EOF
 done
 
 echo "Done fetch."
+echo $SLURM_ARRAY_TASK_ID >> "${WORKDIR}/completed_fetch"
 if [[ "$REPOPATH" = "${WORKDIR}/cvmfs/" ]]; then
   fusermount -u "$REPOPATH"
 fi
