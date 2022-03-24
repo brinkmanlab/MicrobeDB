@@ -6,6 +6,12 @@ source $(dirname $(realpath "$0"))/job.env
 if [[ -n $LOCAL || -n $LOCAL_FETCH ]]; then
   # Run fetch locally rather than sbatch
   echo "Running fetch.sh locally for $COUNT records"
+  if [[ -z $CLEAN && ! -d $REPOPATH ]]; then
+    # mount repo in userspace if doesn't exist
+    export REPOPATH="${WORKDIR}/cvmfs/"
+    mkdir -p "$REPOPATH"
+    cvmfs2 -o config="$SRCDIR/cvmfs.cc.conf" "$REPONAME" "$REPOPATH"
+  fi
   for ((i = 0; i < $TASKCOUNT; i++)); do
     if ! grep -Fsqxm1 "$i" completed_fetch; then
       SLURM_TMPDIR="$(mktemp -d microbedb_$i.XXXXXXXXXX)"
@@ -13,6 +19,9 @@ if [[ -n $LOCAL || -n $LOCAL_FETCH ]]; then
       rm -rf "$SLURM_TMPDIR"
     fi
   done
+  if [[ "$REPOPATH" = "${WORKDIR}/cvmfs/" ]]; then
+    fusermount -u "$REPOPATH"
+  fi
 fi
 
 # Resubmit an array job for any task id not present in the ./completed_processing file

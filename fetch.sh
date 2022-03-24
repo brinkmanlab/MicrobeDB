@@ -33,12 +33,7 @@ fi
 
 # Download data
 echo "Preparing download lists.."
-if [[ -z $CLEAN && ! -d $REPOPATH ]]; then
-  # mount repo in userspace if doesn't exist
-  REPOPATH="${WORKDIR}/cvmfs/"
-  mkdir -p "$REPOPATH"
-  cvmfs2 -o config="$SRCDIR/cvmfs.cc.conf" "$REPONAME" "$REPOPATH"
-elif [[ -z $CLEAN && -d $REPOPATH && $(cvmfs_config showconfig "$REPONAME" | grep -P 'CVMFS_REPOSITORY_TAG=$|CVMFS_REPOSITORY_DATE=$|CVMFS_ROOT_HASH=$' | wc -l) == 3 ]]; then
+if [[ -z $CLEAN && -d $REPOPATH && $(cvmfs_config showconfig "$REPONAME" | grep -P 'CVMFS_REPOSITORY_TAG=$|CVMFS_REPOSITORY_DATE=$|CVMFS_ROOT_HASH=$' | wc -l) == 3 ]]; then
   # verify that node has most recent commit of CVMFS repo mounted
   echo "ERROR: $REPONAME targets commit other than trunk. The diff should be against the most recent commit."
   exit 1
@@ -151,6 +146,3 @@ done
 
 echo "Done fetch."
 echo $SLURM_ARRAY_TASK_ID >> "${WORKDIR}/completed_fetch"
-if [[ "$REPOPATH" = "${WORKDIR}/cvmfs/" ]]; then
-  fusermount -u "$REPOPATH"
-fi

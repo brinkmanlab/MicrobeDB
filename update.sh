@@ -189,11 +189,20 @@ echo
 if [[ -n $LOCAL || -n $LOCAL_FETCH ]]; then
   # Run fetch locally rather than sbatch
   echo "Running fetch.sh locally for $COUNT records"
+  if [[ -z $CLEAN && ! -d $REPOPATH ]]; then
+    # mount repo in userspace if doesn't exist
+    export REPOPATH="${WORKDIR}/cvmfs/"
+    mkdir -p "$REPOPATH"
+    cvmfs2 -o config="$SRCDIR/cvmfs.cc.conf" "$REPONAME" "$REPOPATH"
+  fi
   for ((i = 0; i < $TASKCOUNT; i++)); do
     SLURM_TMPDIR="$(mktemp -d microbedb_$i.XXXXXXXXXX)"
     SLURM_ARRAY_TASK_ID=$i SLURM_TMPDIR="$SLURM_TMPDIR" "${SRCDIR}/fetch.sh"
     rm -rf "$SLURM_TMPDIR"
   done
+  if [[ "$REPOPATH" = "${WORKDIR}/cvmfs/" ]]; then
+    fusermount -u "$REPOPATH"
+  fi
 fi
 
 if [[ -n $LOCAL ]]; then

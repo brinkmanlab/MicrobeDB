@@ -25,8 +25,17 @@ mkdir -p "$OUTDIR"
 WORKDIR="$(pwd)"
 cd "$SLURM_TMPDIR"
 
-if [[ -n $LOCAL_FETCH ]]; then
+if [[ -z $LOCAL_FETCH ]]; then
+  if [[ -z $CLEAN && ! -d $REPOPATH ]]; then
+    # mount repo in userspace if doesn't exist
+    export REPOPATH="${WORKDIR}/cvmfs/"
+    mkdir -p "$REPOPATH"
+    cvmfs2 -o config="$SRCDIR/cvmfs.cc.conf" "$REPONAME" "$REPOPATH"
+  fi
   "${SRCDIR}/fetch.sh"
+  if [[ "$REPOPATH" = "${WORKDIR}/cvmfs/" ]]; then
+    fusermount -u "$REPOPATH"
+  fi
 else
   # Sync NFS scratch to local scratch
   echo "Copying data from ${FINALOUTDIR} to $OUTDIR"
