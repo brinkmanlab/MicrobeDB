@@ -2,7 +2,7 @@
 
 if [[ $# -ne 2 ]]; then
   echo "Use: ./subclassOf.sh <query_tax_id> <ancestor_tax_id>"
-  exit -1
+  exit 1
 fi
 
 sqlite3 -bail microbedb.sqlite <<EOF
