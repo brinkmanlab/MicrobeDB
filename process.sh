@@ -248,3 +248,5 @@ EOF
 
 echo "Done processing."
 echo $SLURM_ARRAY_TASK_ID >> "${WORKDIR}/completed_processing"
+
+# TODO mash sketch files

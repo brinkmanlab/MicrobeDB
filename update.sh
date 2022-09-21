@@ -98,7 +98,7 @@ else
 fi
 
 # Copy README.md into repository
-cp "${SRCDIR}/README.md" "${OUTDIR}"
+cp "${SRCDIR}/README.md" "${OUTDIR}"  # TODO write separate readme for cvmfs repo
 cp "${SRCDIR}/subclassOf.sh" "${OUTDIR}"
 cp "${SRCDIR}/resume.sh" "${WORKDIR}"
 

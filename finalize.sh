@@ -40,6 +40,8 @@ cp "${SLURM_TMPDIR}/taxonomy.sql" .
 echo "Populating taxonomy table.."
 sqlite3 -bail "${SLURM_TMPDIR}/microbedb.sqlite" <"${SLURM_TMPDIR}/taxonomy.sql"
 
+# TODO combine mash sketches https://mash.readthedocs.io/en/latest/sketches.html#working-with-sketch-files https://manpages.debian.org/testing/mash/mash-paste.1.en.html
+
 if [[ -z $CLEAN && -f ${REPOPATH}/microbedb.sqlite ]]; then
   echo "Copying forward any summaries and datasets that were not synced.."
   cat checksums_*.csv > checksums.csv

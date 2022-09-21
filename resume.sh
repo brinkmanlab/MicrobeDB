@@ -11,6 +11,8 @@ if [[ -n $LOCAL || -n $LOCAL_FETCH ]]; then
     export REPOPATH="${WORKDIR}/cvmfs/"
     mkdir -p "$REPOPATH"
     cvmfs2 -o config="$SRCDIR/cvmfs.cc.conf" "$REPONAME" "$REPOPATH"
+
+
   fi
   for ((i = 0; i < $TASKCOUNT; i++)); do
     if ! grep -Fsqxm1 "$i" completed_fetch; then
